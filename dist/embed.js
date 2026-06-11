@@ -110,11 +110,11 @@
   <section class="grid" id="grid"></section>
 </div>
 
-<div class="modal-backdrop" id="modalBackdrop">
-  <div class="modal" id="modal">
-    <button class="modal-close" id="modalClose">&times;</button>
-    <div class="modal-header" id="modalHeader"></div>
-    <div class="modal-body" id="modalBody"></div>
+<div class="speero-modal-backdrop" id="modalBackdrop">
+  <div class="speero-modal" id="modal">
+    <button class="speero-modal-close" id="modalClose">&times;</button>
+    <div class="speero-modal-header" id="modalHeader"></div>
+    <div class="speero-modal-body" id="modalBody"></div>
   </div>
 </div>
 `;
@@ -293,11 +293,11 @@
       : "";
 
     header.innerHTML = `
-      <div class="modal-name">${escapeHtml(v.name)}</div>
-      <div class="modal-h1">${escapeHtml(v.h1)}</div>
-      <div class="modal-h2">${escapeHtml(v.h2)}</div>
-      <div class="modal-meta">
-        <a href="${escapeAttr(v.url)}" target="_blank" rel="noopener" class="modal-cta">Visit website &rarr;</a>
+      <div class="speero-modal-name">${escapeHtml(v.name)}</div>
+      <div class="speero-modal-h1">${escapeHtml(v.h1)}</div>
+      <div class="speero-modal-h2">${escapeHtml(v.h2)}</div>
+      <div class="speero-modal-meta">
+        <a href="${escapeAttr(v.url)}" target="_blank" rel="noopener" class="speero-modal-cta">Visit website &rarr;</a>
         ${statusBadge}
       </div>
     `;
@@ -308,17 +308,17 @@
     const summary = v.summary;
     if (summary) {
       sections.push(`
-        <div class="modal-section">
-          <div class="modal-section-label">Profile</div>
-          <div class="modal-profile">${escapeHtml(summary)}</div>
+        <div class="speero-modal-section">
+          <div class="speero-modal-section-label">Profile</div>
+          <div class="speero-modal-profile">${escapeHtml(summary)}</div>
         </div>
       `);
     }
 
     if (v.mcp !== "none" && v.mcpDetail) {
       sections.push(`
-        <div class="modal-section">
-          <div class="modal-section-label">MCP Server</div>
+        <div class="speero-modal-section">
+          <div class="speero-modal-section-label">MCP Server</div>
           <div class="mcp-detail-box">
             <div class="mcp-detail-row"><strong>Type</strong><span>${v.mcp === "product" ? "Product-level MCP" : "Platform-level MCP"}</span></div>
             <div class="mcp-detail-row"><strong>Hosted</strong><span>${escapeHtml(v.mcpDetail.hosted)}</span></div>
@@ -331,9 +331,9 @@
 
     if (v.ucf.length) {
       sections.push(`
-        <div class="modal-section">
-          <div class="modal-section-label">Use Case Fit</div>
-          <div class="modal-tags">${v.ucf.map(t => `<span class="modal-tag">${escapeHtml(t)}</span>`).join("")}</div>
+        <div class="speero-modal-section">
+          <div class="speero-modal-section-label">Use Case Fit</div>
+          <div class="speero-modal-tags">${v.ucf.map(t => `<span class="speero-modal-tag">${escapeHtml(t)}</span>`).join("")}</div>
         </div>
       `);
     }
@@ -342,72 +342,72 @@
     if (v.ai.length) {
       grid.push(`
         <div>
-          <div class="modal-section-label">AI / Agentic Capabilities</div>
-          <div class="modal-tags">${v.ai.map(t => `<span class="modal-tag">${escapeHtml(t)}</span>`).join("")}</div>
+          <div class="speero-modal-section-label">AI / Agentic Capabilities</div>
+          <div class="speero-modal-tags">${v.ai.map(t => `<span class="speero-modal-tag">${escapeHtml(t)}</span>`).join("")}</div>
         </div>
       `);
     }
     if (v.compliance.length) {
       grid.push(`
         <div>
-          <div class="modal-section-label">Compliance &amp; Security</div>
-          <div class="modal-tags">${v.compliance.map(t => `<span class="modal-tag">${escapeHtml(t)}</span>`).join("")}</div>
+          <div class="speero-modal-section-label">Compliance &amp; Security</div>
+          <div class="speero-modal-tags">${v.compliance.map(t => `<span class="speero-modal-tag">${escapeHtml(t)}</span>`).join("")}</div>
         </div>
       `);
     }
     if (v.pricing.length) {
       grid.push(`
         <div>
-          <div class="modal-section-label">Pricing Model</div>
-          <div class="modal-tags">${v.pricing.map(t => `<span class="modal-tag">${escapeHtml(t)}</span>`).join("")}</div>
+          <div class="speero-modal-section-label">Pricing Model</div>
+          <div class="speero-modal-tags">${v.pricing.map(t => `<span class="speero-modal-tag">${escapeHtml(t)}</span>`).join("")}</div>
         </div>
       `);
     }
     if (v.warehouse.length) {
       grid.push(`
         <div>
-          <div class="modal-section-label">Data Warehouses</div>
-          <div class="modal-tags">${v.warehouse.map(t => `<span class="modal-tag">${escapeHtml(t)}</span>`).join("")}</div>
+          <div class="speero-modal-section-label">Data Warehouses</div>
+          <div class="speero-modal-tags">${v.warehouse.map(t => `<span class="speero-modal-tag">${escapeHtml(t)}</span>`).join("")}</div>
         </div>
       `);
     }
     if (grid.length) {
-      sections.push(`<div class="modal-section"><div class="modal-grid">${grid.join("")}</div></div>`);
+      sections.push(`<div class="speero-modal-section"><div class="speero-modal-grid">${grid.join("")}</div></div>`);
     }
 
     if (v.sdk.length) {
       sections.push(`
-        <div class="modal-section">
-          <div class="modal-section-label">SDK Languages (${v.sdk.length})</div>
-          <div class="modal-tags">${v.sdk.map(t => `<span class="modal-tag">${escapeHtml(t)}</span>`).join("")}</div>
+        <div class="speero-modal-section">
+          <div class="speero-modal-section-label">SDK Languages (${v.sdk.length})</div>
+          <div class="speero-modal-tags">${v.sdk.map(t => `<span class="speero-modal-tag">${escapeHtml(t)}</span>`).join("")}</div>
         </div>
       `);
     }
 
     if (v.integrations.length) {
       sections.push(`
-        <div class="modal-section">
-          <div class="modal-section-label">Integrations</div>
-          <div class="modal-tags">${v.integrations.map(t => `<span class="modal-tag">${escapeHtml(t)}</span>`).join("")}</div>
+        <div class="speero-modal-section">
+          <div class="speero-modal-section-label">Integrations</div>
+          <div class="speero-modal-tags">${v.integrations.map(t => `<span class="speero-modal-tag">${escapeHtml(t)}</span>`).join("")}</div>
         </div>
       `);
     }
 
     sections.push(`
-      <div class="modal-footer-cta">
-        <div class="modal-footer-cta-label">Coming soon</div>
-        <div class="modal-footer-cta-text"><strong>Read the full Speero analysis of ${escapeHtml(v.name)}</strong><br>Dedicated tool pages with extended editorial, sources, and Speero recommendations launch in Phase E.</div>
+      <div class="speero-modal-footer-cta">
+        <div class="speero-modal-footer-cta-label">Coming soon</div>
+        <div class="speero-modal-footer-cta-text"><strong>Read the full Speero analysis of ${escapeHtml(v.name)}</strong><br>Dedicated tool pages with extended editorial, sources, and Speero recommendations launch in Phase E.</div>
       </div>
     `);
 
     body.innerHTML = sections.join("");
     mount.querySelector("#modalBackdrop").classList.add("open");
-    document.body.classList.add("modal-open");
+    document.body.classList.add("speero-modal-open");
   }
 
   function closeModal() {
     mount.querySelector("#modalBackdrop").classList.remove("open");
-    document.body.classList.remove("modal-open");
+    document.body.classList.remove("speero-modal-open");
   }
 
   // ============ EVENT WIRING ============

@@ -451,7 +451,7 @@
 }
 
 /* ============ MODAL ============ */
-#speero-testing-tools .modal-backdrop {
+#speero-testing-tools .speero-modal-backdrop {
   display: none;
   position: fixed;
   inset: 0;
@@ -460,10 +460,10 @@
   overflow-y: auto;
   padding: 40px 20px;
 }
-#speero-testing-tools .modal-backdrop.open {
+#speero-testing-tools .speero-modal-backdrop.open {
   display: block;
 }
-#speero-testing-tools .modal {
+#speero-testing-tools .speero-modal {
   background: var(--paper);
   max-width: 760px;
   margin: 0 auto;
@@ -472,7 +472,7 @@
   position: relative;
   box-shadow: 0 24px 64px -16px rgba(0, 22, 65, 0.4);
 }
-#speero-testing-tools .modal-close {
+#speero-testing-tools .speero-modal-close {
   position: absolute;
   top: 20px;
   right: 20px;
@@ -490,12 +490,12 @@
   z-index: 10;
   transition: background 0.15s;
 }
-#speero-testing-tools .modal-close:hover { background: var(--speero-red); }
-#speero-testing-tools .modal-header {
+#speero-testing-tools .speero-modal-close:hover { background: var(--speero-red); }
+#speero-testing-tools .speero-modal-header {
   padding: 32px 32px 24px;
   border-bottom: 1px solid var(--ink-10);
 }
-#speero-testing-tools .modal-name {
+#speero-testing-tools .speero-modal-name {
   font-size: 32px;
   font-weight: 900;
   line-height: 1.1;
@@ -503,26 +503,26 @@
   margin-bottom: 8px;
   padding-right: 60px;
 }
-#speero-testing-tools .modal-h1 {
+#speero-testing-tools .speero-modal-h1 {
   font-size: 16px;
   font-weight: 500;
   color: var(--ink);
   margin-bottom: 4px;
 }
-#speero-testing-tools .modal-h2 {
+#speero-testing-tools .speero-modal-h2 {
   font-size: 14px;
   font-weight: 300;
   color: var(--ink-60);
   line-height: 1.5;
   margin-bottom: 20px;
 }
-#speero-testing-tools .modal-meta {
+#speero-testing-tools .speero-modal-meta {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
   align-items: center;
 }
-#speero-testing-tools .modal-cta {
+#speero-testing-tools .speero-modal-cta {
   background: var(--ink);
   color: white;
   padding: 10px 20px;
@@ -532,18 +532,18 @@
   font-size: 14px;
   transition: background 0.15s;
 }
-#speero-testing-tools .modal-cta:hover { background: var(--speero-red); }
+#speero-testing-tools .speero-modal-cta:hover { background: var(--speero-red); }
 
-#speero-testing-tools .modal-body {
+#speero-testing-tools .speero-modal-body {
   padding: 32px;
 }
-#speero-testing-tools .modal-section {
+#speero-testing-tools .speero-modal-section {
   margin-bottom: 28px;
 }
-#speero-testing-tools .modal-section:last-child {
+#speero-testing-tools .speero-modal-section:last-child {
   margin-bottom: 0;
 }
-#speero-testing-tools .modal-section-label {
+#speero-testing-tools .speero-modal-section-label {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -552,17 +552,17 @@
   margin-bottom: 12px;
   font-style: italic;
 }
-#speero-testing-tools .modal-summary {
+#speero-testing-tools .speero-modal-summary {
   font-size: 15px;
   line-height: 1.6;
   color: var(--ink);
 }
-#speero-testing-tools .modal-tags {
+#speero-testing-tools .speero-modal-tags {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
 }
-#speero-testing-tools .modal-tag {
+#speero-testing-tools .speero-modal-tag {
   font-size: 12px;
   color: var(--ink);
   background: var(--ink-06);
@@ -570,17 +570,17 @@
   border-radius: 999px;
   font-weight: 400;
 }
-#speero-testing-tools .modal-tag.mcp-cap {
+#speero-testing-tools .speero-modal-tag.mcp-cap {
   background: rgba(255, 0, 73, 0.08);
   color: var(--speero-red);
 }
-#speero-testing-tools .modal-grid {
+#speero-testing-tools .speero-modal-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 24px;
 }
 @media (max-width: 600px) {
-  #speero-testing-tools .modal-grid { grid-template-columns: 1fr; }
+  #speero-testing-tools .speero-modal-grid { grid-template-columns: 1fr; }
 }
 
 #speero-testing-tools .mcp-detail-box {
@@ -601,7 +601,7 @@
   color: var(--ink-60);
 }
 
-#speero-testing-tools .modal-profile {
+#speero-testing-tools .speero-modal-profile {
   font-size: 15px;
   line-height: 1.65;
   font-weight: 300;
@@ -609,7 +609,7 @@
   padding: 4px 0 8px;
 }
 
-#speero-testing-tools .modal-footer-cta {
+#speero-testing-tools .speero-modal-footer-cta {
   margin-top: 12px;
   padding: 20px;
   background: var(--ink-04);
@@ -617,7 +617,7 @@
   text-align: center;
   border: 1px dashed var(--ink-20);
 }
-#speero-testing-tools .modal-footer-cta-label {
+#speero-testing-tools .speero-modal-footer-cta-label {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -625,14 +625,14 @@
   color: var(--ink-60);
   margin-bottom: 6px;
 }
-#speero-testing-tools .modal-footer-cta-text {
+#speero-testing-tools .speero-modal-footer-cta-text {
   font-size: 14px;
   color: var(--ink-60);
   font-weight: 400;
 }
-#speero-testing-tools .modal-footer-cta-text strong {
+#speero-testing-tools .speero-modal-footer-cta-text strong {
   color: var(--ink);
   font-weight: 700;
 }
 
-body.modal-open { overflow: hidden; }
+body.speero-modal-open { overflow: hidden; }
