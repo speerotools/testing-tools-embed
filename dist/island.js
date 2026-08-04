@@ -1,0 +1,316 @@
+// Speero A/B Testing Tools — per-vendor page island
+// Hydrates a Webflow CMS template page at /ab-testing-tools/[slug].
+// Renders the nine-section vendor profile plus the two computed quadrant maps
+// (market position + agentic readiness). Ported from the hub prototype; the
+// only changes are: real path routing instead of hash routes, data fetched from
+// the CDN JSON, and a normalize() layer that maps the production vendor shape
+// onto the fields the detail view and scorer expect.
+//
+// Mount: <div id="speero-tool-page" data-slug="{{slug}}"></div>
+// The slug is read from data-slug first (bind it to the CMS Slug field in
+// Webflow), then falls back to the last segment of location.pathname.
+
+(function () {
+  const MOUNT_ID = "speero-tool-page";
+  const DATA_URL = "https://cdn.jsdelivr.net/gh/speerotools/testing-tools-data@main/testing-tools.json";
+
+  const mount = document.getElementById(MOUNT_ID);
+  if (!mount) return;
+
+  let VENDORS = [];
+  let LAST_VERIFIED = "";
+
+  // ---------- slug resolution ----------
+  function currentSlug() {
+    const attr = (mount.getAttribute("data-slug") || "").trim();
+    if (attr) return attr;
+    const parts = location.pathname.replace(/\/+$/, "").split("/");
+    return parts[parts.length - 1] || "";
+  }
+
+  // ---------- normalize production shape -> detail shape ----------
+  const cap = s => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+  function normalize(v) {
+    const d = v.mcpDetail || {};
+    return {
+      n:      v.name || "",
+      s:      v.slug || "",
+      h1:     v.h1 || "",
+      h2:     v.h2 || "",
+      take:   v.summary || "",
+      url:    v.url || "",
+      mcp:    { type: cap(v.mcp || "none"), url: d.url || "", hosted: d.hosted || "", docs: d.docs || "", auth: d.auth || "" },
+      ai:     v.ai || [],
+      caps:   v.caps || [],           // MCP capabilities — not yet in production JSON
+      ucf:    v.ucf || [],
+      price:  v.pricing || [],
+      comp:   v.compliance || [],
+      sdk:    v.sdk || [],
+      types:  v.types || [],          // campaign types — not yet in production JSON
+      status: cap(v.status || "active"),
+      scraped: v.scraped || "",       // last vendor scrape date — not yet in production JSON
+      sources: v.sources || [],       // source URLs — not yet in production JSON
+      acq:    v.acquiredBy || "",
+      // quadrant manual overrides — not yet in production JSON, fall back to computed
+      mxo: v.mxo != null ? v.mxo : null,
+      myo: v.myo != null ? v.myo : null,
+      axo: v.axo != null ? v.axo : null,
+      ayo: v.ayo != null ? v.ayo : null
+    };
+  }
+
+  // ---------- helpers ----------
+  function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  function bySlug(s) { return VENDORS.find(v => v.s === s); }
+  function fmtDate(d) { if (!d) return ""; const [y, m] = d.split("-"); const mo = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][+m]; return mo ? mo + " " + y : d; }
+  function shortUrl(u) { try { const x = new URL(u); return x.hostname.replace(/^www\./, "") + x.pathname.replace(/\/$/, ""); } catch (e) { return u; } }
+
+  // ---------- canonical scoring (start 50, clamp 4-96) ----------
+  const clamp = v => Math.max(4, Math.min(96, Math.round(v)));
+  function has(arr, needle) { return (arr || []).some(x => x.toLowerCase().includes(needle)); }
+
+  function marketX(v) { // marketing/CRO left, engineering/product right
+    let s = 50;
+    if (has(v.ucf, "server-side")) s += 16;
+    if (has(v.ucf, "warehouse-native")) s += 12;
+    if (has(v.ucf, "client-side marketing")) s -= 16;
+    if (has(v.ucf, "shopify")) s -= 12;
+    if (has(v.ucf, "dtc")) s -= 6;
+    if (has(v.ucf, "b2b saas")) s += 6;
+    if (has(v.ucf, "mobile app")) s += 6;
+    const sdkAdj = Math.max(-14, Math.min(14, ((v.sdk || []).length - 6) * 1.2));
+    return clamp(s + sdkAdj);
+  }
+  function marketY(v) { // SMB bottom, enterprise top
+    let s = 50;
+    const entOnly = (v.price || []).length === 1 && has(v.price, "enterprise");
+    if (entOnly) s += 12;
+    else if (has(v.price, "enterprise")) s += 4;
+    if (has(v.price, "free")) s -= 8;
+    s += ((v.comp || []).length - 3) * 4;
+    if (has(v.ucf, "enterprise")) s += 8;
+    if (has(v.ucf, "agency-friendly")) s -= 6;
+    if (has(v.ucf, "shopify")) s -= 8;
+    return clamp(s);
+  }
+  function agenticX(v) { // closed to agents left, open right
+    let s = 50;
+    const t = (v.mcp && v.mcp.type) || "None";
+    if (t === "None") s -= 28;
+    else if (t === "Platform") s -= 6;
+    else if (t === "Product") s += 18;
+    s += (v.caps || []).length * 2.2;
+    const sdkAdj = Math.max(-10, Math.min(10, ((v.sdk || []).length - 6) * 0.8));
+    return clamp(s + sdkAdj);
+  }
+  function agenticY(v) { // native AI feature count
+    return clamp(4 + ((v.ai || []).length / 8) * 92);
+  }
+
+  // ---------- quadrant map SVG (name-as-marker, collision dodge) ----------
+  function renderMap(opts) {
+    const W = 920, H = 560, pad = { t: 46, r: 26, b: 52, l: 26 };
+    const iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
+    const px = x => pad.l + (x / 100) * iw;
+    const py = y => pad.t + ih - (y / 100) * ih;
+    const pts = opts.vendors.map(v => ({
+      v, x: px(opts.fx(v)), y: py(opts.fy(v)),
+      focal: opts.focal && v.s === opts.focal
+    }));
+    pts.sort((a, b) => a.y - b.y || a.x - b.x);
+    const placed = [];
+    const charW = 6.1, lh = 15;
+    for (const p of pts) {
+      const w = p.v.n.length * charW + 8;
+      let ty = p.y, tries = 0, dir = 1;
+      const collides = () => placed.some(q => Math.abs(q.ty - ty) < lh && (p.x - w / 2) < (q.x + q.w / 2) && (p.x + w / 2) > (q.x - q.w / 2));
+      while (collides() && tries < 40) { tries++; dir = -dir; ty = p.y + Math.ceil(tries / 2) * lh * dir; }
+      ty = Math.max(pad.t + 24, Math.min(pad.t + ih - 8, ty));
+      p.ty = ty; p.w = w; placed.push(p);
+    }
+    const labels = placed.map(p => {
+      const cls = p.focal ? "fill:#FF0049;font-weight:900" : "fill:#001641;font-weight:300";
+      const fs = p.focal ? 13.5 : 11.5;
+      return `<text x="${p.x.toFixed(1)}" y="${p.ty.toFixed(1)}" text-anchor="middle" style="${cls};font-size:${fs}px;font-family:Poppins,Arial,sans-serif;cursor:pointer" data-slug="${p.v.s}">${esc(p.v.n)}</text>`;
+    }).join("");
+    const q = opts.quads || [];
+    const quadLabels = q.map((t, i) => {
+      const qx = i % 2 === 0 ? pad.l + 8 : pad.l + iw - 8;
+      const qy = i < 2 ? pad.t + 16 : pad.t + ih - 8;
+      const anc = i % 2 === 0 ? "start" : "end";
+      return `<text x="${qx}" y="${qy}" text-anchor="${anc}" style="fill:#FF0049;font-weight:900;font-style:italic;font-size:10px;letter-spacing:.12em;font-family:Poppins,Arial,sans-serif">${t.toUpperCase()}</text>`;
+    }).join("");
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title)}">
+      <defs><pattern id="gp${opts.id}" width="23" height="23" patternUnits="userSpaceOnUse">
+        <path d="M 23 0 L 0 0 0 23" fill="none" stroke="rgba(0,22,65,0.06)" stroke-width="1"/>
+      </pattern></defs>
+      <rect x="${pad.l}" y="${pad.t}" width="${iw}" height="${ih}" fill="url(#gp${opts.id})" stroke="rgba(0,22,65,0.2)"/>
+      <line x1="${pad.l + iw / 2}" y1="${pad.t}" x2="${pad.l + iw / 2}" y2="${pad.t + ih}" stroke="rgba(0,22,65,0.2)" stroke-dasharray="4 4"/>
+      <line x1="${pad.l}" y1="${pad.t + ih / 2}" x2="${pad.l + iw}" y2="${pad.t + ih / 2}" stroke="rgba(0,22,65,0.2)" stroke-dasharray="4 4"/>
+      ${quadLabels}
+      ${labels}
+      <text x="${pad.l}" y="${H - 16}" style="fill:rgba(0,22,65,.6);font-size:10.5px;letter-spacing:.1em;font-family:Poppins,Arial,sans-serif">&#8592; ${esc(opts.xlab[0]).toUpperCase()}</text>
+      <text x="${pad.l + iw}" y="${H - 16}" text-anchor="end" style="fill:rgba(0,22,65,.6);font-size:10.5px;letter-spacing:.1em;font-family:Poppins,Arial,sans-serif">${esc(opts.xlab[1]).toUpperCase()} &#8594;</text>
+      <text x="${pad.l - 8}" y="${pad.t + ih}" transform="rotate(-90 ${pad.l - 8} ${pad.t + ih})" style="fill:rgba(0,22,65,.6);font-size:10.5px;letter-spacing:.1em;font-family:Poppins,Arial,sans-serif">&#8592; ${esc(opts.ylab[0]).toUpperCase()}</text>
+      <text x="${pad.l - 8}" y="${pad.t + 10}" transform="rotate(-90 ${pad.l - 8} ${pad.t + 10})" text-anchor="end" style="fill:rgba(0,22,65,.6);font-size:10.5px;letter-spacing:.1em;font-family:Poppins,Arial,sans-serif">${esc(opts.ylab[1]).toUpperCase()} &#8594;</text>
+    </svg>`;
+  }
+  function marketMap(focal, id) {
+    return renderMap({
+      id, title: "Market position map", focal,
+      vendors: VENDORS.filter(v => v.status !== "Discontinued"),
+      fx: v => (v.mxo != null ? clamp(v.mxo) : marketX(v)),
+      fy: v => (v.myo != null ? clamp(v.myo) : marketY(v)),
+      xlab: ["Marketing and CRO teams", "Engineering and product teams"],
+      ylab: ["SMB and self-serve", "Enterprise and governance"],
+      quads: []
+    });
+  }
+  function agenticMap(focal, id) {
+    return renderMap({
+      id, title: "Agentic readiness map", focal,
+      vendors: VENDORS.filter(v => v.status !== "Discontinued"),
+      fx: v => (v.axo != null ? clamp(v.axo) : agenticX(v)),
+      fy: v => (v.ayo != null ? clamp(v.ayo) : agenticY(v)),
+      xlab: ["Closed to agents", "Open: MCP server plus SDK breadth"],
+      ylab: ["Fewer native AI features", "More native AI features"],
+      quads: ["Smart but manual", "Agentic-native", "Pre-AI / manual", "Programmable, low AI"]
+    });
+  }
+  const MAP_METHOD = '<p><b>A caveat, upfront.</b> Every 2&times;2 like this compresses a multi-dimensional stack &mdash; pricing model, compliance depth, SDK breadth, buyer type &mdash; into a single dot, which makes it look more authoritative than it is. A tool built for two audiences gets averaged into serving neither, and position can read as ranking even when it isn&rsquo;t one.</p><p><b>How to read it.</b> Nothing here is hand-placed. Every dot is computed from the verified capability tags in the vendor database, the same data driving the filters on the hub. When a vendor ships a new SDK or drops a pricing tier, it moves on the next monthly sweep. But computed isn&rsquo;t the same as correct: the weights behind each axis are judgment calls, the tags are only as good as our verification, and a 2D view of a many-dimension database loses information by definition.</p><p>If a position looks wrong to you, <a class="redlink" href="https://speero.com/contact">tell us</a> and we&rsquo;ll re-verify the underlying tags.</p>';
+
+  // ---------- nine-section detail view ----------
+  function detailView(v) {
+    const alts = VENDORS.filter(o => o.s !== v.s && (o.ucf || []).some(u => (v.ucf || []).includes(u))).slice(0, 6);
+    const mcp = v.mcp || {};
+    const HUB = "/ab-testing-tools";
+    return `
+    <div class="wrap">
+      <nav class="breadcrumb"><a href="${HUB}">A/B testing tools</a> / ${esc(v.n)}</nav>
+      <div class="dhero">
+        <div>
+          <span class="eyebrow">${esc((v.ucf && v.ucf[0]) || "Experimentation platform")}</span>
+          <h1>${esc(v.n)}</h1>
+          <p class="h2q">&ldquo;${esc(v.h1 || "")}&rdquo; ${v.h2 ? "&mdash; " + esc(v.h2) : ""}</p>
+          <a class="visit" href="${esc(v.url)}" target="_blank" rel="noopener">Visit ${esc(v.n.split(" ")[0])} &#8599;</a>
+        </div>
+        <aside class="glance">
+          <h3>At a glance</h3>
+          <dl>
+            <dt>MCP server</dt><dd>${mcp.type === "Product" ? '<b class="red">Yes, product</b>' : mcp.type === "Platform" ? "<b>Platform-level</b>" : "None"}</dd>
+            ${(v.caps || []).length ? `<dt>MCP capabilities</dt><dd><b>${v.caps.length}</b> verified</dd>` : ""}
+            <dt>Native AI features</dt><dd><b>${(v.ai || []).length}</b> verified</dd>
+            <dt>Pricing model</dt><dd>${esc((v.price || []).join(", ") || "Not published")}</dd>
+            <dt>Compliance</dt><dd>${esc((v.comp || []).join(", ") || "None verified first-party")}</dd>
+            <dt>SDK coverage</dt><dd><b>${(v.sdk || []).length}</b> languages / surfaces</dd>
+            ${v.acq ? `<dt>Acquired by</dt><dd>${esc(v.acq)}</dd>` : ""}
+            ${v.scraped ? `<dt>Last verified</dt><dd>${fmtDate(v.scraped)}</dd>` : ""}
+          </dl>
+        </aside>
+      </div>
+
+      <div class="dsec">
+        <h2>The Speero take</h2>
+        <p class="take">${esc(v.take || "")}</p>
+        <div class="maps2">
+          <div>
+            <h3 style="font-size:13px;margin-bottom:8px">Where it sits in the market</h3>
+            <div class="mapframe">${marketMap(v.s, "dm")}</div>
+          </div>
+          <div>
+            <h3 style="font-size:13px;margin-bottom:8px">How agent-ready it is</h3>
+            <div class="mapframe">${agenticMap(v.s, "da")}</div>
+          </div>
+        </div>
+        <div class="map-caption" style="border:none;padding-left:4px">${MAP_METHOD}</div>
+      </div>
+
+      <div class="dsec">
+        <h2>AI and agent access</h2>
+        <p class="lede">Two different questions: what AI the tool ships natively, and whether your own agents can operate it programmatically.</p>
+        <div class="kv">
+          <div class="cell"><div class="k">MCP type</div><div class="v">${esc(mcp.type || "None")}</div></div>
+          ${mcp.url ? `<div class="cell"><div class="k">MCP endpoint</div><div class="v" style="font-weight:300;font-size:12px">${esc(mcp.url)}</div></div>` : ""}
+          ${mcp.auth ? `<div class="cell"><div class="k">Auth</div><div class="v">${esc(mcp.auth)}</div></div>` : ""}
+          ${mcp.hosted ? `<div class="cell"><div class="k">Hosting</div><div class="v">${esc(mcp.hosted)}</div></div>` : ""}
+          ${mcp.docs ? `<div class="cell"><div class="k">MCP docs</div><div class="v"><a href="${esc(mcp.docs)}" target="_blank" rel="noopener">Documentation &#8599;</a></div></div>` : ""}
+        </div>
+        ${(v.caps || []).length ? `<h4 style="margin-top:22px" class="mono-label">Verified MCP capabilities</h4><div class="tagcloud">${v.caps.map(c => `<span class="tag">${esc(c)}</span>`).join("")}</div>` : ""}
+        ${(v.ai || []).length ? `<h4 style="margin-top:18px" class="mono-label">Native AI features</h4><div class="tagcloud">${v.ai.map(c => `<span class="tag">${esc(c)}</span>`).join("")}</div>` : ""}
+      </div>
+
+      <div class="dsec">
+        <h2>Capabilities</h2>
+        <div class="capgrid">
+          ${(v.types || []).length ? `<div><h4>Campaign types</h4><div class="tagcloud">${v.types.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div></div>` : ""}
+          ${(v.sdk || []).length ? `<div><h4>SDKs and surfaces</h4><div class="tagcloud">${v.sdk.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div></div>` : ""}
+          ${(v.comp || []).length ? `<div><h4>Compliance and security</h4><div class="tagcloud">${v.comp.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div></div>` : ""}
+          ${(v.ucf || []).length ? `<div><h4>Use case fit</h4><div class="tagcloud">${v.ucf.map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div></div>` : ""}
+        </div>
+      </div>
+
+      ${alts.length ? `
+      <div class="dsec">
+        <h2>Compare with alternatives</h2>
+        <p class="lede">Tools with overlapping use case fit.</p>
+        <div class="altrow">${alts.map(a => `<a href="${HUB}/${esc(a.s)}">${esc(a.n)} &#8594;</a>`).join("")}</div>
+      </div>` : ""}
+
+      <div class="dsec" style="border-bottom:none">
+        <h2>Sources and method</h2>
+        <p class="srcnote"><b>What counts as a source.</b> ${esc(v.n)}&rsquo;s own site, product docs, pricing page, and trust or security center. Not aggregator reviews, not review-site scores, not a claim we couldn&rsquo;t trace back to the vendor itself.</p>
+        <p class="srcnote"><b>What we re-check.</b> Every field on this page is re-pulled on Speero&rsquo;s monthly sweep, including homepage H1/H2 messaging rather than deep product pages, since that&rsquo;s where wording drifts first.${v.scraped ? " Last verified " + fmtDate(v.scraped) + "." : ""}</p>
+        <p class="srcnote">Empty fields mean we could not verify a claim first-party. We leave those blank rather than guess.</p>
+        ${(v.sources || []).length ? `
+        <details class="method-disclosure" style="margin-top:14px">
+          <summary>Show the ${v.sources.length} source URLs used to verify this profile</summary>
+          <div class="method-body">
+            <ul class="srclist">${v.sources.map(u => `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(shortUrl(u))}</a></li>`).join("")}</ul>
+          </div>
+        </details>` : `
+        <p class="srcnote" style="font-style:italic">Full source list for ${esc(v.n)} is queued for our next monthly sweep.</p>`}
+      </div>
+    </div>`;
+  }
+
+  function notFoundView(slug) {
+    return `<div class="wrap"><div class="dsec" style="border:none">
+      <nav class="breadcrumb"><a href="/ab-testing-tools">A/B testing tools</a> / Not found</nav>
+      <h2 style="margin-top:20px">Tool not found</h2>
+      <p class="lede">We couldn&rsquo;t find a profile for &ldquo;${esc(slug)}&rdquo;. It may have been renamed or removed.
+      <a class="redlink" href="/ab-testing-tools">Back to all tools &#8594;</a></p>
+    </div></div>`;
+  }
+
+  function errorView() {
+    return `<div class="wrap"><div class="dsec" style="border:none">
+      <h2 style="margin-top:20px">Profile temporarily unavailable</h2>
+      <p class="lede">We couldn&rsquo;t load the vendor data right now. Please refresh in a moment.</p>
+    </div></div>`;
+  }
+
+  // ---------- click-through on map name markers ----------
+  mount.addEventListener("click", e => {
+    const svgName = e.target.closest("text[data-slug]");
+    if (svgName) location.href = "/ab-testing-tools/" + svgName.getAttribute("data-slug");
+  });
+
+  // ---------- boot ----------
+  function showLoading() {
+    mount.innerHTML = `<div class="wrap"><div class="dsec" style="border:none"><p class="lede">Loading profile&hellip;</p></div></div>`;
+  }
+
+  showLoading();
+  fetch(DATA_URL, { cache: "no-cache" })
+    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(data => {
+      const list = Array.isArray(data) ? data : (data.vendors || []);
+      VENDORS = list.map(normalize);
+      LAST_VERIFIED = data.version || "";
+      const slug = currentSlug();
+      const v = bySlug(slug);
+      mount.innerHTML = v ? detailView(v) : notFoundView(slug);
+      if (v) document.title = v.n + " | A/B testing tools | Speero";
+    })
+    .catch(() => { mount.innerHTML = errorView(); });
+})();
