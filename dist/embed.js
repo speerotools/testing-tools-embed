@@ -1,14 +1,17 @@
 // Speero A/B Testing Tools — hub / directory embed
-// Ported from the hub prototype (speero-testing-tools-hub.html). Renders the
-// hero, the computed market-position map, the filterable directory, and the
-// side-by-side compare view into #speero-testing-tools. Data comes from the
-// CDN JSON; vendor cards link to the real Webflow pages at
-// /ab-testing-tools/[slug] (not hash routes). The per-vendor page itself is
-// rendered by island.js.
+// Ported from the canonical hub (Speero-AI/ab-testing-tools-hub,
+// frontend/speero-testing-tools-hub.html): v2 dot-marker map renderer, the
+// Market position / Agent readiness tab switch, and the agentic-readiness map.
+// Differences from the canonical, by design: data is fetched from our CDN JSON
+// at runtime (not baked inline), and vendor cards link to the real Webflow
+// pages at /ab-testing-tools/[slug]. Agentic positions (ax/ay) come straight
+// from the payload — Airtable's "Agentic Map X/Y Final" via sync.py — and are
+// never re-derived in the browser, matching build_json.py's contract.
 
 (function () {
   const MOUNT_ID = "speero-testing-tools";
-  const DATA_URL = "https://cdn.jsdelivr.net/gh/speerotools/testing-tools-data@main/testing-tools.json";
+  const DATA_URL = (typeof window !== "undefined" && window.SPEERO_TT_DATA_URL) ||
+    "https://cdn.jsdelivr.net/gh/speerotools/testing-tools-data@main/testing-tools.json";
   const TOOL_BASE = "/ab-testing-tools";
 
   const mount = document.getElementById(MOUNT_ID);
@@ -17,8 +20,9 @@
   let VENDORS = [];
   let LAST_VERIFIED = "";
 
-  // ---------- normalize production shape -> prototype shape ----------
+  // ---------- normalize production shape -> render shape ----------
   const cap = s => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+  const num = x => (typeof x === "number" ? x : (x != null && x !== "" && !isNaN(+x) ? +x : null));
   function normalize(v) {
     const d = v.mcpDetail || {};
     return {
@@ -30,8 +34,9 @@
       types: v.types || [], warehouse: v.warehouse || [],
       status: cap(v.status || "active"), scraped: v.scraped || "",
       acq: v.acquiredBy || "",
-      mxo: v.mxo != null ? v.mxo : null, myo: v.myo != null ? v.myo : null,
-      axo: v.axo != null ? v.axo : null, ayo: v.ayo != null ? v.ayo : null
+      // agentic positions to plot (Airtable Final); computed + override ride along for drift
+      ax: num(v.ax), ay: num(v.ay), axc: num(v.axc), ayc: num(v.ayc),
+      axo: num(v.axo), ayo: num(v.ayo), mxo: num(v.mxo), myo: num(v.myo)
     };
   }
 
@@ -40,7 +45,7 @@
   function bySlug(s) { return VENDORS.find(v => v.s === s); }
   function fmtDate(d) { if (!d) return ""; const [y, m] = d.split("-"); const mo = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][+m]; return mo ? mo + " " + y : d; }
 
-  // ---------- canonical scoring ----------
+  // ---------- canonical market scoring (JS-side; agentic is baked in payload) ----------
   const clamp = v => Math.max(4, Math.min(96, Math.round(v)));
   function has(arr, needle) { return (arr || []).some(x => x.toLowerCase().includes(needle)); }
   function marketX(v) {
@@ -66,41 +71,100 @@
     if (has(v.ucf, "shopify")) s -= 8;
     return clamp(s);
   }
+  // Agentic positions are Airtable's Final, carried in the payload; never re-derived here.
+  function agenticX(v) { if (typeof v.ax === "number") return v.ax; console.warn("[map] no agenticX for " + v.n + " — payload needs a rescore"); return 50; }
+  function agenticY(v) { if (typeof v.ay === "number") return v.ay; console.warn("[map] no agenticY for " + v.n + " — payload needs a rescore"); return 50; }
 
-  // ---------- market map SVG (name-as-marker, collision dodge) ----------
+  // ---------- v2 quadrant map SVG (dot marker + ring-search label placement) ----------
+  function measure(s, fs) {
+    let w = 0;
+    for (const ch of s) {
+      if ("iljtfrI.,:;'!|".includes(ch)) w += 0.30;
+      else if ("mwMW".includes(ch)) w += 0.88;
+      else if (ch === " ") w += 0.28;
+      else if (ch >= "A" && ch <= "Z") w += 0.66;
+      else w += 0.55;
+    }
+    return w * fs;
+  }
+  const LABEL_SLOTS = (() => {
+    const out = [];
+    for (const r of [0, 1, 2, 3, 4, 5, 6, 7]) {
+      const gap = 7 + r * 9, rise = r * 11;
+      out.push({ dx: gap, dy: 3.8 + rise, anc: "start" });
+      out.push({ dx: -gap, dy: 3.8 + rise, anc: "end" });
+      if (r > 0) {
+        out.push({ dx: gap, dy: 3.8 - rise, anc: "start" });
+        out.push({ dx: -gap, dy: 3.8 - rise, anc: "end" });
+      }
+      out.push({ dx: 0, dy: -(8 + rise), anc: "middle" });
+      out.push({ dx: 0, dy: 14 + rise, anc: "middle" });
+    }
+    return out;
+  })();
   function renderMap(opts) {
-    const W = 920, H = 560, pad = { t: 46, r: 26, b: 52, l: 26 };
+    const W = opts.w || 1000, H = opts.h || 640;
+    const pad = { t: 54, r: 30, b: 58, l: 36 };
     const iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
     const px = x => pad.l + (x / 100) * iw;
     const py = y => pad.t + ih - (y / 100) * ih;
-    const pts = opts.vendors.map(v => ({ v, x: px(opts.fx(v)), y: py(opts.fy(v)), focal: opts.focal && v.s === opts.focal }));
-    pts.sort((a, b) => a.y - b.y || a.x - b.x);
-    const placed = [];
-    const charW = 6.1, lh = 15;
-    for (const p of pts) {
-      const w = p.v.n.length * charW + 8;
-      let ty = p.y, tries = 0, dir = 1;
-      const collides = () => placed.some(q => Math.abs(q.ty - ty) < lh && (p.x - w / 2) < (q.x + q.w / 2) && (p.x + w / 2) > (q.x - q.w / 2));
-      while (collides() && tries < 40) { tries++; dir = -dir; ty = p.y + Math.ceil(tries / 2) * lh * dir; }
-      ty = Math.max(pad.t + 24, Math.min(pad.t + ih - 8, ty));
-      p.ty = ty; p.w = w; placed.push(p);
+    const pts = opts.vendors.map(v => ({ v, x: px(opts.fx(v)), y: py(opts.fy(v)), focal: !!(opts.focal && v.s === opts.focal) }));
+    const near = (p, q) => Math.hypot(p.x - q.x, p.y - q.y);
+    pts.forEach(p => { p.density = pts.reduce((n, q) => n + (q !== p && near(p, q) < 70 ? 1 : 0), 0); });
+    const order = pts.slice().sort((a, b) => (b.focal - a.focal) || (b.density - a.density) || (a.y - b.y) || (a.x - b.x));
+    const boxes = [];
+    const hits = b => boxes.some(o => b.x1 < o.x2 + 7 && b.x2 > o.x1 - 7 && b.y1 < o.y2 + 1.5 && b.y2 > o.y1 - 1.5);
+    const dotBox = p => { const r = (p.focal ? 7 : 3.4) + 1.6; return { p, x1: p.x - r, x2: p.x + r, y1: p.y - r, y2: p.y + r }; };
+    const dots_ = pts.map(dotBox);
+    const hitsDot = (b, self) => dots_.some(d => d.p !== self && b.x1 < d.x2 && b.x2 > d.x1 && b.y1 < d.y2 && b.y2 > d.y1);
+    for (const p of order) {
+      const fs = p.focal ? 14 : 11.5;
+      const w = measure(p.v.n, fs), h = fs * 1.06;
+      let best = null;
+      for (const s of LABEL_SLOTS) {
+        const ax = p.x + s.dx, ay = p.y + s.dy;
+        const x1 = s.anc === "start" ? ax : s.anc === "end" ? ax - w : ax - w / 2;
+        const box = { x1, x2: x1 + w, y1: ay - h * 0.78, y2: ay + h * 0.24 };
+        if (box.x1 < pad.l + 3 || box.x2 > pad.l + iw - 3) continue;
+        if (box.y1 < pad.t + 3 || box.y2 > pad.t + ih - 3) continue;
+        if (hits(box) || hitsDot(box, p)) continue;
+        best = { ax, ay, anc: s.anc, box }; break;
+      }
+      if (!best) { const ax = p.x + 7, ay = p.y + 3.8; best = { ax, ay, anc: "start", box: { x1: ax, x2: ax + w, y1: ay - h * 0.78, y2: ay + h * 0.24 } }; }
+      p.tx = best.ax; p.ty = best.ay; p.anc = best.anc; p.fs = fs;
+      const cx = Math.max(best.box.x1, Math.min(p.x, best.box.x2));
+      const cy = Math.max(best.box.y1, Math.min(p.y, best.box.y2));
+      p.lead = Math.hypot(p.x - cx, p.y - cy) > 11;
+      boxes.push(best.box);
     }
-    const labels = placed.map(p => {
-      const cls = p.focal ? "fill:#FF0049;font-weight:900" : "fill:#001641;font-weight:300";
-      const fs = p.focal ? 13.5 : 11.5;
-      return `<text x="${p.x.toFixed(1)}" y="${p.ty.toFixed(1)}" text-anchor="middle" style="${cls};font-size:${fs}px;font-family:Poppins,Arial,sans-serif;cursor:pointer" data-slug="${p.v.s}">${esc(p.v.n)}</text>`;
+    const leaders = pts.filter(p => p.lead).map(p => {
+      const tx = p.anc === "start" ? p.tx - 2.5 : p.anc === "end" ? p.tx + 2.5 : p.tx;
+      return `<line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${tx.toFixed(1)}" y2="${(p.ty - 3.4).toFixed(1)}" stroke="${p.focal ? "rgba(255,0,73,.55)" : "rgba(0,22,65,.22)"}" stroke-width="1"/>`;
+    }).join("");
+    const dots = pts.map(p => p.focal
+      ? `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="6.5" fill="none" stroke="#FF0049" stroke-width="1.4" opacity=".5"/><circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.6" fill="#FF0049"/>`
+      : `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.6" fill="#001641" opacity=".62"/>`).join("");
+    const labels = pts.map(p => {
+      const cls = (p.focal ? "fill:#FF0049;font-weight:900" : "fill:#001641;font-weight:300") + ";paint-order:stroke;stroke:#FAFAF7;stroke-width:3.2px;stroke-linejoin:round";
+      return `<g class="mlabel" data-slug="${p.v.s}" style="cursor:pointer"><title>${esc(p.v.n)}</title><text x="${p.tx.toFixed(1)}" y="${p.ty.toFixed(1)}" text-anchor="${p.anc}" style="${cls};font-size:${p.fs}px;font-family:Poppins,Arial,sans-serif">${esc(p.v.n)}</text></g>`;
+    }).join("");
+    const q = opts.quads || [];
+    const quadLabels = q.map((t, i) => {
+      const qx = i % 2 === 0 ? pad.l + 9 : pad.l + iw - 9;
+      const qy = i < 2 ? pad.t + 17 : pad.t + ih - 9;
+      const anc = i % 2 === 0 ? "start" : "end";
+      return `<text x="${qx}" y="${qy}" text-anchor="${anc}" style="fill:rgba(255,0,73,.75);font-weight:900;font-style:italic;font-size:10px;letter-spacing:.12em;font-family:Poppins,Arial,sans-serif">${t.toUpperCase()}</text>`;
     }).join("");
     return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.title)}">
-      <defs><pattern id="gp${opts.id}" width="23" height="23" patternUnits="userSpaceOnUse">
-        <path d="M 23 0 L 0 0 0 23" fill="none" stroke="rgba(0,22,65,0.06)" stroke-width="1"/></pattern></defs>
+      <defs><pattern id="gp${opts.id}" width="23" height="23" patternUnits="userSpaceOnUse"><path d="M 23 0 L 0 0 0 23" fill="none" stroke="rgba(0,22,65,0.06)" stroke-width="1"/></pattern></defs>
       <rect x="${pad.l}" y="${pad.t}" width="${iw}" height="${ih}" fill="url(#gp${opts.id})" stroke="rgba(0,22,65,0.2)"/>
       <line x1="${pad.l + iw / 2}" y1="${pad.t}" x2="${pad.l + iw / 2}" y2="${pad.t + ih}" stroke="rgba(0,22,65,0.2)" stroke-dasharray="4 4"/>
       <line x1="${pad.l}" y1="${pad.t + ih / 2}" x2="${pad.l + iw}" y2="${pad.t + ih / 2}" stroke="rgba(0,22,65,0.2)" stroke-dasharray="4 4"/>
-      ${labels}
-      <text x="${pad.l}" y="${H - 16}" style="fill:rgba(0,22,65,.6);font-size:10.5px;letter-spacing:.1em;font-family:Poppins,Arial,sans-serif">&#8592; ${esc(opts.xlab[0]).toUpperCase()}</text>
-      <text x="${pad.l + iw}" y="${H - 16}" text-anchor="end" style="fill:rgba(0,22,65,.6);font-size:10.5px;letter-spacing:.1em;font-family:Poppins,Arial,sans-serif">${esc(opts.xlab[1]).toUpperCase()} &#8594;</text>
-      <text x="${pad.l - 8}" y="${pad.t + ih}" transform="rotate(-90 ${pad.l - 8} ${pad.t + ih})" style="fill:rgba(0,22,65,.6);font-size:10.5px;letter-spacing:.1em;font-family:Poppins,Arial,sans-serif">&#8592; ${esc(opts.ylab[0]).toUpperCase()}</text>
-      <text x="${pad.l - 8}" y="${pad.t + 10}" transform="rotate(-90 ${pad.l - 8} ${pad.t + 10})" text-anchor="end" style="fill:rgba(0,22,65,.6);font-size:10.5px;letter-spacing:.1em;font-family:Poppins,Arial,sans-serif">${esc(opts.ylab[1]).toUpperCase()} &#8594;</text>
+      ${quadLabels}${leaders}${dots}${labels}
+      <text x="${pad.l}" y="${H - 18}" style="fill:rgba(0,22,65,.6);font-size:10.5px;letter-spacing:.1em;font-family:Poppins,Arial,sans-serif">&#8592; ${esc(opts.xlab[0]).toUpperCase()}</text>
+      <text x="${pad.l + iw}" y="${H - 18}" text-anchor="end" style="fill:rgba(0,22,65,.6);font-size:10.5px;letter-spacing:.1em;font-family:Poppins,Arial,sans-serif">${esc(opts.xlab[1]).toUpperCase()} &#8594;</text>
+      <text x="${pad.l - 10}" y="${pad.t + ih}" transform="rotate(-90 ${pad.l - 10} ${pad.t + ih})" style="fill:rgba(0,22,65,.6);font-size:10.5px;letter-spacing:.1em;font-family:Poppins,Arial,sans-serif">&#8592; ${esc(opts.ylab[0]).toUpperCase()}</text>
+      <text x="${pad.l - 10}" y="${pad.t + 10}" transform="rotate(-90 ${pad.l - 10} ${pad.t + 10})" text-anchor="end" style="fill:rgba(0,22,65,.6);font-size:10.5px;letter-spacing:.1em;font-family:Poppins,Arial,sans-serif">${esc(opts.ylab[1]).toUpperCase()} &#8594;</text>
     </svg>`;
   }
   function marketMap(focal, id) {
@@ -110,15 +174,44 @@
       fx: v => (v.mxo != null ? clamp(v.mxo) : marketX(v)),
       fy: v => (v.myo != null ? clamp(v.myo) : marketY(v)),
       xlab: ["Marketing and CRO teams", "Engineering and product teams"],
-      ylab: ["SMB and self-serve", "Enterprise and governance"]
+      ylab: ["SMB and self-serve", "Enterprise and governance"], quads: []
     });
   }
-  const MAP_METHOD = '<p><b>A caveat, upfront.</b> Every 2&times;2 like this compresses a multi-dimensional stack &mdash; pricing model, compliance depth, SDK breadth, buyer type &mdash; into a single dot, which makes it look more authoritative than it is.</p><p><b>How to read it.</b> Nothing here is hand-placed. Every dot is computed from the verified capability tags in the vendor database, the same data driving the filters below. If a position looks wrong, <a class="redlink" href="https://speero.com/#main-form">tell us</a> and we&rsquo;ll re-verify.</p>';
+  function agenticMap(focal, id) {
+    return renderMap({
+      id, title: "Agentic readiness map", focal,
+      vendors: VENDORS.filter(v => v.status !== "Discontinued"),
+      fx: agenticX, fy: agenticY,
+      xlab: ["Closed to agents", "Open: MCP server plus SDK breadth"],
+      ylab: ["Fewer native AI features", "More native AI features"],
+      quads: ["Smart but manual", "Agentic-native", "Pre-AI / manual", "Programmable, low AI"]
+    });
+  }
+  const MAP_METHOD = 'How to read this: positions are computed from verified capability tags in our vendor database, not vendor claims or opinion scores. Weights are directional. If you think a position is wrong, <a class="redlink" href="https://speero.com/#main-form">tell us</a> and we will re-verify the underlying tags.';
+  function mapTabs(focal, idp) {
+    const mid = idp + "-m", aid = idp + "-a";
+    return `<div class="mapgroup" data-mapgroup>
+      <div class="maptabs" role="tablist" aria-label="Quadrant maps">
+        <button class="maptab" role="tab" data-maptab="market" aria-selected="true" aria-controls="${mid}">Market position</button>
+        <button class="maptab" role="tab" data-maptab="agentic" aria-selected="false" aria-controls="${aid}">Agent readiness</button>
+      </div>
+      <div class="mappanel" data-mappanel="market" id="${mid}" role="tabpanel">
+        <p class="map-axis">Horizontal: <b>marketing and CRO buyers</b> to <b>engineering and product buyers</b>. Vertical: <b>SMB self-serve</b> to <b>enterprise governance</b>.</p>
+        <div class="mapframe">${marketMap(focal, mid)}</div>
+      </div>
+      <div class="mappanel" data-mappanel="agentic" id="${aid}" role="tabpanel" hidden>
+        <p class="map-axis">Horizontal: <b>closed to agents</b> to <b>open MCP server plus SDK breadth</b>. Vertical: <b>fewer</b> to <b>more native AI features</b>.</p>
+        <div class="mapframe">${agenticMap(focal, aid)}</div>
+      </div>
+      <p class="map-caption">${MAP_METHOD}</p>
+    </div>`;
+  }
 
   // ---------- filters ----------
   const FILTER_DEFS = [
     { key: "ucf", label: "Use case fit", get: v => v.ucf || [] },
     { key: "mcp", label: "MCP server", get: v => [(v.mcp && v.mcp.type) || "None"] },
+    { key: "types", label: "Campaign types", get: v => v.types || [] },
     { key: "price", label: "Pricing model", get: v => v.price || [] },
     { key: "comp", label: "Compliance", get: v => v.comp || [] }
   ];
@@ -158,18 +251,16 @@
         <p class="sub">${total} platforms compared on capabilities, pricing model, compliance, and how ready each one is for AI agents. Every data point traces to a first-party vendor source and gets re-verified on a monthly cycle.</p>
         <div class="metastrip">
           <div><b>${total}</b><span>Vendors tracked</span></div>
-          <div><b class="red">${mcpCount}</b><span>Ship a product MCP server</span></div>
+          <div><b><span class="red">${mcpCount}</span></b><span>Ship a product MCP server</span></div>
           <div><b>100%</b><span>First-party sourced</span></div>
           <div><b>${esc(LAST_VERIFIED)}</b><span>Last verified</span></div>
         </div>
       </div>
 
       <section id="map">
-        <div class="sec-head"><h2>Where each tool sits in the market</h2></div>
-        <p class="sec-sub">Horizontal: marketing and CRO buyers to engineering and product buyers. Vertical: SMB self-serve to enterprise governance. Click a name to open its profile.</p>
-        <div class="mapframe">${marketMap(null, "hub")}
-          <div class="map-caption">${MAP_METHOD}</div>
-        </div>
+        <div class="sec-head"><h2>The two maps</h2></div>
+        <p class="sec-sub">Where each tool sits in the market, and how ready it is for AI agents. Switch between the two views. Click any name to open its profile.</p>
+        ${mapTabs(null, "hub")}
       </section>
 
       <section id="directory">
@@ -286,10 +377,18 @@
     go.disabled = state.compare.length < 2;
   }
 
+  // ---------- map tab switch (toggle panels, never re-plot) ----------
+  function switchTab(group, which) {
+    group.querySelectorAll(".maptab").forEach(t => t.setAttribute("aria-selected", String(t.getAttribute("data-maptab") === which)));
+    group.querySelectorAll(".mappanel").forEach(p => { p.hidden = p.getAttribute("data-mappanel") !== which; });
+  }
+
   // ---------- events (delegated on mount) ----------
   mount.addEventListener("click", e => {
-    const svgName = e.target.closest("text[data-slug]");
-    if (svgName) { location.href = TOOL_BASE + "/" + svgName.getAttribute("data-slug"); return; }
+    const maptab = e.target.closest(".maptab");
+    if (maptab) { switchTab(maptab.closest("[data-mapgroup]"), maptab.getAttribute("data-maptab")); return; }
+    const mlabel = e.target.closest(".mlabel[data-slug]");
+    if (mlabel) { location.href = TOOL_BASE + "/" + mlabel.getAttribute("data-slug"); return; }
     const cmp = e.target.closest("[data-cmp]");
     if (cmp) { e.stopPropagation(); toggleCompare(cmp.getAttribute("data-cmp")); return; }
     const untray = e.target.closest("[data-untray]");
