@@ -211,7 +211,6 @@
   const FILTER_DEFS = [
     { key: "ucf", label: "Use case fit", get: v => v.ucf || [] },
     { key: "mcp", label: "MCP server", get: v => [(v.mcp && v.mcp.type) || "None"] },
-    { key: "types", label: "Campaign types", get: v => v.types || [] },
     { key: "price", label: "Pricing model", get: v => v.price || [] },
     { key: "comp", label: "Compliance", get: v => v.comp || [] }
   ];

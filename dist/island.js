@@ -12,7 +12,8 @@
 
 (function () {
   const MOUNT_ID = "speero-tool-page";
-  const DATA_URL = "https://cdn.jsdelivr.net/gh/speerotools/testing-tools-data@main/testing-tools.json";
+  const DATA_URL = (typeof window !== "undefined" && window.SPEERO_TT_DATA_URL) ||
+    "https://cdn.jsdelivr.net/gh/speerotools/testing-tools-data@main/testing-tools.json";
 
   const mount = document.getElementById(MOUNT_ID);
   if (!mount) return;
@@ -51,11 +52,12 @@
       scraped: v.scraped || "",       // last vendor scrape date — not yet in production JSON
       sources: v.sources || [],       // source URLs — not yet in production JSON
       acq:    v.acquiredBy || "",
-      // quadrant manual overrides — not yet in production JSON, fall back to computed
-      mxo: v.mxo != null ? v.mxo : null,
-      myo: v.myo != null ? v.myo : null,
-      axo: v.axo != null ? v.axo : null,
-      ayo: v.ayo != null ? v.ayo : null
+      // agentic positions from the payload (Airtable's Agentic Map X/Y Final);
+      // computed + override ride along for drift. Market overrides win JS-side.
+      ax: v.ax != null ? +v.ax : null, ay: v.ay != null ? +v.ay : null,
+      axc: v.axc != null ? +v.axc : null, ayc: v.ayc != null ? +v.ayc : null,
+      axo: v.axo != null ? +v.axo : null, ayo: v.ayo != null ? +v.ayo : null,
+      mxo: v.mxo != null ? +v.mxo : null, myo: v.myo != null ? +v.myo : null
     };
   }
 
@@ -93,19 +95,11 @@
     if (has(v.ucf, "shopify")) s -= 8;
     return clamp(s);
   }
-  function agenticX(v) { // closed to agents left, open right
-    let s = 50;
-    const t = (v.mcp && v.mcp.type) || "None";
-    if (t === "None") s -= 28;
-    else if (t === "Platform") s -= 6;
-    else if (t === "Product") s += 18;
-    s += (v.caps || []).length * 2.2;
-    const sdkAdj = Math.max(-10, Math.min(10, ((v.sdk || []).length - 6) * 0.8));
-    return clamp(s + sdkAdj);
-  }
-  function agenticY(v) { // native AI feature count
-    return clamp(4 + ((v.ai || []).length / 8) * 92);
-  }
+  // Agentic positions are Airtable's Agentic Map X/Y Final (v2 scorer, override
+  // precedence already applied), carried in the payload. Plot them directly;
+  // never re-derive in the browser. A vendor with no Final plots at centre.
+  function agenticX(v) { if (typeof v.ax === "number") return v.ax; console.warn("[map] no agenticX for " + v.n + " — payload needs a rescore"); return 50; }
+  function agenticY(v) { if (typeof v.ay === "number") return v.ay; console.warn("[map] no agenticY for " + v.n + " — payload needs a rescore"); return 50; }
 
   // ---------- quadrant map SVG (name-as-marker, collision dodge) ----------
   function renderMap(opts) {
