@@ -416,6 +416,21 @@
   });
   mount.addEventListener("input", e => { if (e.target.id === "q") { state.q = e.target.value; refreshDirectory(); } });
 
+  // ---------- hub ItemList JSON-LD (Phase E) — declares the 34 children ----------
+  function injectItemList() {
+    document.head.querySelectorAll('script[data-seo-ld="itemlist"]').forEach(s => s.remove());
+    const items = VENDORS.map((v, i) => ({
+      "@type": "ListItem", position: i + 1, name: v.n,
+      url: "https://speero.com" + TOOL_BASE + "/" + v.s
+    }));
+    const obj = { "@context": "https://schema.org", "@type": "ItemList",
+      name: "A/B testing and experimentation tools", numberOfItems: items.length, itemListElement: items };
+    const s = document.createElement("script");
+    s.type = "application/ld+json"; s.setAttribute("data-seo-ld", "itemlist");
+    s.textContent = JSON.stringify(obj);
+    document.head.appendChild(s);
+  }
+
   // ---------- boot ----------
   function showLoading() { mount.innerHTML = `<div class="wrap"><div class="hero"><p class="sub">Loading testing tools&hellip;</p></div></div>`; }
   function showError() { mount.innerHTML = `<div class="wrap"><div class="hero"><h1>Tools directory temporarily unavailable</h1><p class="sub">We couldn&rsquo;t load the data right now. Please refresh in a moment.</p></div></div>`; }
@@ -427,6 +442,7 @@
       const list = Array.isArray(data) ? data : (data.vendors || []);
       VENDORS = list.map(normalize);
       LAST_VERIFIED = data.version ? (fmtDate(String(data.version).slice(0, 7)) || String(data.version).slice(0, 10)) : "";
+      injectItemList();
       render();
     })
     .catch(() => showError());

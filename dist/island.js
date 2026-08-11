@@ -49,9 +49,13 @@
       sdk:    v.sdk || [],
       types:  v.types || [],          // campaign types — not yet in production JSON
       status: cap(v.status || "active"),
-      scraped: v.scraped || "",       // last vendor scrape date — not yet in production JSON
+      scraped: v.scraped || "",       // last vendor scrape date (Last Vendor Scrape)
       sources: v.sources || [],       // source URLs — not yet in production JSON
       acq:    v.acquiredBy || "",
+      seoTitle: v.seoTitle || "",     // Phase E: reviewed Meta Title (falls back below)
+      seoDesc:  v.seoDesc || "",      // Phase E: reviewed Meta Description
+      seoH1:    v.seoH1 || "",        // Phase E: reviewed SEO H1
+      ogImage:  v.ogImage || "",      // Phase E: OG/Twitter card image
       // agentic positions from the payload (Airtable's Agentic Map X/Y Final);
       // computed + override ride along for drift. Market overrides win JS-side.
       ax: v.ax != null ? +v.ax : null, ay: v.ay != null ? +v.ay : null,
@@ -173,18 +177,113 @@
   }
   const MAP_METHOD = '<p><b>A caveat, upfront.</b> Every 2&times;2 like this compresses a multi-dimensional stack &mdash; pricing model, compliance depth, SDK breadth, buyer type &mdash; into a single dot, which makes it look more authoritative than it is. A tool built for two audiences gets averaged into serving neither, and position can read as ranking even when it isn&rsquo;t one.</p><p><b>How to read it.</b> Nothing here is hand-placed. Every dot is computed from the verified capability tags in the vendor database, the same data driving the filters on the hub. When a vendor ships a new SDK or drops a pricing tier, it moves on the next monthly sweep. But computed isn&rsquo;t the same as correct: the weights behind each axis are judgment calls, the tags are only as good as our verification, and a 2D view of a many-dimension database loses information by definition.</p><p>If a position looks wrong to you, <a class="redlink" href="https://speero.com/#main-form">tell us</a> and we&rsquo;ll re-verify the underlying tags.</p>';
 
+  // ---------- SEO: computed fallbacks + head injection (Phase E) ----------
+  const SITE = "https://speero.com";
+  const HUB_URL = SITE + "/ab-testing-tools";
+  function pageUrl(v) { return HUB_URL + "/" + v.s; }
+
+  function seoTitle(v) {
+    if (v.seoTitle) return v.seoTitle;                       // reviewed copy wins
+    if (v.acq) return `${v.n} Review 2026: Now Part of ${v.acq}`;
+    const full = `${v.n} Review 2026: Features, Pricing & Alternatives`;
+    if (full.length <= 60) return full;
+    const mid = `${v.n} Review 2026: Pricing & Alternatives`;
+    if (mid.length <= 60) return mid;
+    return `${v.n} Review 2026`;
+  }
+  function seoDesc(v) {
+    if (v.seoDesc) return v.seoDesc;
+    let lead = (v.take || "").trim();
+    if (lead) {                                              // first sentence of the Speero blurb
+      const dot = lead.indexOf(". ");
+      if (dot > 0) lead = lead.slice(0, dot + 1);
+    } else {
+      lead = `${v.n} is an A/B testing and experimentation platform.`;
+    }
+    for (const cta of ["Compare pricing, AI and MCP capability, and alternatives.",
+                       "Compare pricing, AI capability, and alternatives.",
+                       "Compare pricing and alternatives."]) {
+      const d = (lead.replace(/[\s.]+$/, "") + ". " + cta).trim();
+      if (d.length <= 158) return d;
+    }
+    // still long: trim the lead at a word boundary and use the shortest CTA
+    const short = "Compare pricing and alternatives.";
+    const base = lead.replace(/[\s.]+$/, "").slice(0, 158 - short.length - 2).replace(/\s+\S*$/, "");
+    return (base + ". " + short).trim();
+  }
+  function seoH1(v) { return v.seoH1 || `${v.n} review: features, pricing, and alternatives`; }
+
+  function upsertMeta(sel, attrs) {
+    let el = document.head.querySelector(sel);
+    if (!el) { el = document.createElement("meta"); el.setAttribute("data-seo", "1"); document.head.appendChild(el); }
+    Object.entries(attrs).forEach(([k, val]) => el.setAttribute(k, val));
+  }
+  function injectHead(v) {
+    const title = seoTitle(v), desc = seoDesc(v), url = pageUrl(v), img = v.ogImage || "";
+    document.title = title;
+    upsertMeta('meta[name="description"]', { name: "description", content: desc });
+    // canonical
+    let can = document.head.querySelector('link[rel="canonical"]');
+    if (!can) { can = document.createElement("link"); can.rel = "canonical"; can.setAttribute("data-seo", "1"); document.head.appendChild(can); }
+    can.href = url;
+    // Open Graph + Twitter
+    upsertMeta('meta[property="og:type"]', { property: "og:type", content: "article" });
+    upsertMeta('meta[property="og:title"]', { property: "og:title", content: title });
+    upsertMeta('meta[property="og:description"]', { property: "og:description", content: desc });
+    upsertMeta('meta[property="og:url"]', { property: "og:url", content: url });
+    upsertMeta('meta[property="og:site_name"]', { property: "og:site_name", content: "Speero" });
+    upsertMeta('meta[name="twitter:card"]', { name: "twitter:card", content: "summary_large_image" });
+    upsertMeta('meta[name="twitter:title"]', { name: "twitter:title", content: title });
+    upsertMeta('meta[name="twitter:description"]', { name: "twitter:description", content: desc });
+    if (img) {
+      upsertMeta('meta[property="og:image"]', { property: "og:image", content: img });
+      upsertMeta('meta[name="twitter:image"]', { name: "twitter:image", content: img });
+    }
+    // JSON-LD: SoftwareApplication + BreadcrumbList
+    document.head.querySelectorAll('script[data-seo-ld]').forEach(s => s.remove());
+    const soft = {
+      "@context": "https://schema.org", "@type": "SoftwareApplication",
+      name: v.n, applicationCategory: "BusinessApplication",
+      applicationSubCategory: "A/B Testing and Experimentation",
+      url: v.url || url, sameAs: v.url || undefined, description: desc, operatingSystem: "Web"
+    };
+    // offers omitted on purpose: Price range is a 1-5 proxy, not dollars.
+    if (v.take) {
+      soft.review = {
+        "@type": "Review",
+        author: { "@type": "Organization", name: "Speero", url: SITE },
+        publisher: { "@type": "Organization", name: "Speero", url: SITE },
+        datePublished: v.scraped || undefined, reviewBody: v.take
+      };
+    }
+    const crumbs = {
+      "@context": "https://schema.org", "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: SITE + "/" },
+        { "@type": "ListItem", position: 2, name: "A/B Testing Tools", item: HUB_URL },
+        { "@type": "ListItem", position: 3, name: v.n, item: url }
+      ]
+    };
+    [soft, crumbs].forEach(obj => {
+      const s = document.createElement("script");
+      s.type = "application/ld+json"; s.setAttribute("data-seo-ld", "1");
+      s.textContent = JSON.stringify(obj);
+      document.head.appendChild(s);
+    });
+  }
+
   // ---------- nine-section detail view ----------
   function detailView(v) {
-    const alts = VENDORS.filter(o => o.s !== v.s && (o.ucf || []).some(u => (v.ucf || []).includes(u))).slice(0, 6);
+    const alts = VENDORS.filter(o => o.s !== v.s && (o.ucf || []).some(u => (v.ucf || []).includes(u))).slice(0, 5);
     const mcp = v.mcp || {};
     const HUB = "/ab-testing-tools";
     return `
     <div class="wrap">
-      <nav class="breadcrumb"><a href="${HUB}">A/B testing tools</a> / ${esc(v.n)}</nav>
+      <nav class="breadcrumb"><a href="/">Home</a> / <a href="${HUB}">A/B testing tools</a> / ${esc(v.n)}</nav>
       <div class="dhero">
         <div>
           <span class="eyebrow">${esc((v.ucf && v.ucf[0]) || "Experimentation platform")}</span>
-          <h1>${esc(v.n)}</h1>
+          <h1>${esc(seoH1(v))}</h1>
           <p class="h2q">&ldquo;${esc(v.h1 || "")}&rdquo; ${v.h2 ? "&mdash; " + esc(v.h2) : ""}</p>
           <a class="visit" href="${esc(v.url)}" target="_blank" rel="noopener">Visit ${esc(v.n.split(" ")[0])} &#8599;</a>
         </div>
@@ -245,9 +344,10 @@
 
       ${alts.length ? `
       <div class="dsec">
-        <h2>Compare with alternatives</h2>
-        <p class="lede">Tools with overlapping use case fit.</p>
+        <h2>Alternatives to ${esc(v.n)}</h2>
+        <p class="lede">Tools with overlapping use case fit. Compare capabilities, pricing, and agent readiness side by side.</p>
         <div class="altrow">${alts.map(a => `<a href="${HUB}/${esc(a.s)}">${esc(a.n)} &#8594;</a>`).join("")}</div>
+        <p class="srcnote" style="margin-top:12px"><a class="redlink" href="${HUB}">See all A/B testing tools &#8594;</a></p>
       </div>` : ""}
 
       <div class="dsec" style="border-bottom:none">
@@ -304,7 +404,8 @@
       const slug = currentSlug();
       const v = bySlug(slug);
       mount.innerHTML = v ? detailView(v) : notFoundView(slug);
-      if (v) document.title = v.n + " | A/B testing tools | Speero";
+      if (v) injectHead(v);          // Phase E: title, meta, canonical, OG/Twitter, JSON-LD
+      else document.title = "Tool not found | A/B testing tools | Speero";
     })
     .catch(() => { mount.innerHTML = errorView(); });
 })();
