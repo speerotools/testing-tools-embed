@@ -94,3 +94,24 @@
 #speero-tool-page .srclist li{font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #speero-tool-page .srclist a{color:var(--ink-60);text-decoration:none}
 #speero-tool-page .srclist a:hover{color:var(--red);text-decoration:underline}
+
+/* Sources and method — live Vendor URLs list (task 86e2qw270) */
+#speero-tool-page .srcmethod{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px 28px;margin:6px 0 22px}
+#speero-tool-page .srcmethod .item{font-size:13px;color:var(--ink-60);line-height:1.55}
+#speero-tool-page .srcmethod .item b{display:block;font-weight:900;color:var(--ink);font-size:11px;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--hairline)}
+#speero-tool-page .srcmeta{display:flex;flex-wrap:wrap;gap:16px 22px;align-items:baseline;font-size:12px;color:var(--ink-60);margin:4px 0 14px}
+#speero-tool-page .srcmeta .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-40);margin-right:6px;font-weight:900}
+#speero-tool-page .srcmeta .v{color:var(--ink);font-weight:900}
+#speero-tool-page .srcurls{margin-top:8px;border:1px solid var(--hairline);background:var(--card);overflow-x:auto}
+#speero-tool-page .srcurls table{width:100%;border-collapse:collapse;font-size:13px}
+#speero-tool-page .srcurls th,#speero-tool-page .srcurls td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--hairline-soft);vertical-align:top}
+#speero-tool-page .srcurls thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-60);font-weight:900;border-bottom:1px solid var(--hairline)}
+#speero-tool-page .srcurls tbody tr:last-child td{border-bottom:none}
+#speero-tool-page .srcurls td.type{white-space:nowrap;color:var(--ink);font-weight:900;font-size:11.5px;text-transform:uppercase;letter-spacing:.08em}
+#speero-tool-page .srcurls td.url a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--hairline);word-break:break-all}
+#speero-tool-page .srcurls td.url a:hover{border-bottom-color:var(--red);color:var(--red)}
+#speero-tool-page .srcurls td.fetched{white-space:nowrap;color:var(--ink-60);font-variant-numeric:tabular-nums}
+#speero-tool-page .srcurls .badge{display:inline-block;font-size:10px;font-weight:900;padding:2px 7px;border:1px solid var(--hairline);color:var(--ink-60);text-transform:uppercase;letter-spacing:.08em;margin-left:6px}
+#speero-tool-page .srcurls .badge.updated{color:var(--red);border-color:rgba(255,0,73,.35)}
+#speero-tool-page .srcfoot{margin-top:12px;font-size:12px;color:var(--ink-60)}
+#speero-tool-page .srcfoot .pill{display:inline-block;font-size:10.5px;font-weight:900;padding:3px 9px;background:var(--card);border:1px solid var(--hairline);text-transform:uppercase;letter-spacing:.08em;margin-right:8px;color:var(--ink)}

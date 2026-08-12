@@ -50,7 +50,8 @@
       types:  v.types || [],          // campaign types — not yet in production JSON
       status: cap(v.status || "active"),
       scraped: v.scraped || "",       // last vendor scrape date (Last Vendor Scrape)
-      sources: v.sources || [],       // source URLs — not yet in production JSON
+      sources: v.sources || [],       // [{type,url,fetched,updated?}] from Vendor URLs registry
+      enrichment: v.enrichment || "", // Enrichment Status pill
       acq:    v.acquiredBy || "",
       seoTitle: v.seoTitle || "",     // Phase E: reviewed Meta Title (falls back below)
       seoDesc:  v.seoDesc || "",      // Phase E: reviewed Meta Description
@@ -351,18 +352,40 @@
       </div>` : ""}
 
       <div class="dsec" style="border-bottom:none">
+        <span class="eyebrow">Method</span>
         <h2>Sources and method</h2>
-        <p class="srcnote"><b>What counts as a source.</b> ${esc(v.n)}&rsquo;s own site, product docs, pricing page, and trust or security center. Not aggregator reviews, not review-site scores, not a claim we couldn&rsquo;t trace back to the vendor itself.</p>
-        <p class="srcnote"><b>What we re-check.</b> Every field on this page is re-pulled on Speero&rsquo;s monthly sweep, including homepage H1/H2 messaging rather than deep product pages, since that&rsquo;s where wording drifts first.${v.scraped ? " Last verified " + fmtDate(v.scraped) + "." : ""}</p>
-        <p class="srcnote">Empty fields mean we could not verify a claim first-party. We leave those blank rather than guess.</p>
+        <p class="lede">Every field on this page is re-pulled on Speero&rsquo;s monthly sweep from ${esc(v.n)}&rsquo;s own site, docs, and trust pages. The list of pages we watch is shown below verbatim. If a page isn&rsquo;t on this list, nothing on this page came from it. Pages flagged <b>Updated</b> changed since our last sweep and were re-reviewed.</p>
+
+        <div class="srcmethod">
+          <div class="item"><b>What counts as a source</b>${esc(v.n)}&rsquo;s own site, product docs, pricing page, and trust or security center. Not aggregators, review sites, or third-party write-ups.</div>
+          <div class="item"><b>What we re-check</b>Every field on this page is re-pulled on Speero&rsquo;s monthly sweep, including homepage H1/H2, capability docs, SDKs, compliance, pricing surface, and MCP docs.</div>
+          <div class="item"><b>What &ldquo;empty&rdquo; means</b>Empty fields mean we could not verify a claim first-party. We leave those blank rather than guess.</div>
+          <div class="item"><b>How the list stays honest</b>URLs are managed in Airtable. New URLs get added when the vendor ships a new surface; dead URLs get flagged and removed. Adding coverage is an Airtable change, not a code change.</div>
+        </div>
+
+        <div class="srcmeta">
+          <span><span class="k">Vendor</span><span class="v">${esc(v.n)}</span></span>
+          <span><span class="k">Active URLs tracked</span><span class="v">${(v.sources || []).length}</span></span>
+          ${v.scraped ? `<span><span class="k">Last swept</span><span class="v">${fmtDate(v.scraped)}</span></span>` : ""}
+          ${v.enrichment ? `<span><span class="k">Enrichment status</span><span class="v">${esc(v.enrichment)}</span></span>` : ""}
+        </div>
+
         ${(v.sources || []).length ? `
-        <details class="method-disclosure" style="margin-top:14px">
-          <summary>Show the ${v.sources.length} source URLs used to verify this profile</summary>
-          <div class="method-body">
-            <ul class="srclist">${v.sources.map(u => `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(shortUrl(u))}</a></li>`).join("")}</ul>
-          </div>
-        </details>` : `
-        <p class="srcnote" style="font-style:italic">Full source list for ${esc(v.n)} is queued for our next monthly sweep.</p>`}
+        <div class="srcurls" role="region" aria-label="Sources tracked for ${esc(v.n)}">
+          <table>
+            <thead><tr><th style="width:170px">URL type</th><th>URL</th><th style="width:110px">Last fetched</th></tr></thead>
+            <tbody>
+              ${v.sources.map(s => `
+                <tr>
+                  <td class="type">${esc(s.type || "-")}</td>
+                  <td class="url"><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a>${s.updated ? `<span class="badge updated">Updated</span>` : ""}</td>
+                  <td class="fetched">${s.fetched ? fmtDate(s.fetched) : ""}</td>
+                </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+        <p class="srcfoot"><span class="pill">Legend</span><b>Updated</b>: this page changed since our last sweep, so we re-reviewed the fields it feeds. Everything else was re-fetched and found unchanged.</p>
+        ` : `<p class="srcnote">No active source URLs are registered for ${esc(v.n)} yet. Coverage is being added in Airtable.</p>`}
       </div>
     </div>`;
   }
