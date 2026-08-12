@@ -51,6 +51,7 @@
       status: cap(v.status || "active"),
       scraped: v.scraped || "",       // last vendor scrape date (Last Vendor Scrape)
       sources: v.sources || [],       // [{type,url,fetched,updated?}] from Vendor URLs registry
+      swept: v.swept || "",           // last URL fetch date (sweep), distinct from scraped
       enrichment: v.enrichment || "", // Enrichment Status pill
       acq:    v.acquiredBy || "",
       seoTitle: v.seoTitle || "",     // Phase E: reviewed Meta Title (falls back below)
@@ -366,7 +367,7 @@
         <div class="srcmeta">
           <span><span class="k">Vendor</span><span class="v">${esc(v.n)}</span></span>
           <span><span class="k">Active URLs tracked</span><span class="v">${(v.sources || []).length}</span></span>
-          ${v.scraped ? `<span><span class="k">Last swept</span><span class="v">${fmtDate(v.scraped)}</span></span>` : ""}
+          ${(v.swept || v.scraped) ? `<span><span class="k">Last swept</span><span class="v">${fmtDate(v.swept || v.scraped)}</span></span>` : ""}
           ${v.enrichment ? `<span><span class="k">Enrichment status</span><span class="v">${esc(v.enrichment)}</span></span>` : ""}
         </div>
 
