@@ -359,14 +359,14 @@
 
         <div class="srcmethod">
           <div class="item"><b>What counts as a source</b>${esc(v.n)}&rsquo;s own site, product docs, pricing page, and trust or security center. Not aggregators, review sites, or third-party write-ups.</div>
-          <div class="item"><b>What we re-check</b>Every field on this page is re-pulled on Speero&rsquo;s monthly sweep, including homepage H1/H2, capability docs, SDKs, compliance, pricing surface, and MCP docs.</div>
+          <div class="item"><b>What we re-check</b>Every field is re-pulled on Speero&rsquo;s monthly sweep. When a page changes, we draft the specific record update, quote the exact line that changed, and a person approves it before anything is updated. Nothing changes automatically.</div>
           <div class="item"><b>What &ldquo;empty&rdquo; means</b>Empty fields mean we could not verify a claim first-party. We leave those blank rather than guess.</div>
           <div class="item"><b>How the list stays honest</b>URLs are managed in the database. New URLs get added when the vendor ships a new surface; dead URLs get flagged and removed. Adding coverage is a database change, not a code change.</div>
         </div>
 
         <div class="srcmeta">
           <span><span class="k">Vendor</span><span class="v">${esc(v.n)}</span></span>
-          <span><span class="k">Active URLs tracked</span><span class="v">${(v.sources || []).length}</span></span>
+          <span><span class="k">Active URLs tracked</span><span class="v">${(v.sources || []).length}${(v.sources || []).filter(s => s.ok === false).length ? ` (${(v.sources || []).filter(s => s.ok === false).length} couldn&rsquo;t fetch)` : ""}</span></span>
           ${(v.swept || v.scraped) ? `<span><span class="k">Last swept</span><span class="v">${fmtDate(v.swept || v.scraped)}</span></span>` : ""}
           ${v.enrichment ? `<span><span class="k">Enrichment status</span><span class="v">${esc(v.enrichment)}</span></span>` : ""}
         </div>
@@ -377,10 +377,10 @@
             <thead><tr><th style="width:170px">URL type</th><th>URL</th><th style="width:110px">Last fetched</th></tr></thead>
             <tbody>
               ${v.sources.map(s => `
-                <tr>
+                <tr class="${s.ok === false ? "blocked" : ""}">
                   <td class="type">${esc(s.type || "-")}</td>
-                  <td class="url"><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a>${s.updated ? `<span class="badge updated">Updated</span>` : ""}</td>
-                  <td class="fetched">${s.fetched ? fmtDate(s.fetched) : ""}</td>
+                  <td class="url"><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a>${s.updated ? `<span class="badge updated">Updated</span>` : ""}${s.ok === false ? `<span class="badge blocked">Couldn&rsquo;t fetch${s.status ? " (" + s.status + ")" : ""}</span>` : ""}</td>
+                  <td class="fetched">${s.ok === false ? "not verified" : (s.fetched ? fmtDate(s.fetched) : "")}</td>
                 </tr>`).join("")}
             </tbody>
           </table>
