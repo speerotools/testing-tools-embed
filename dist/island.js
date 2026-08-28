@@ -359,7 +359,7 @@
 
         <div class="srcmethod">
           <div class="item"><b>What counts as a source</b>${esc(v.n)}&rsquo;s own site, product docs, pricing page, and trust or security center. Not aggregators, review sites, or third-party write-ups.</div>
-          <div class="item"><b>What we re-check</b>Every field is re-pulled on Speero&rsquo;s monthly sweep. When a page changes, we draft the specific record update, quote the exact line that changed, and a person approves it before anything is updated. Nothing changes automatically.</div>
+          <div class="item"><b>What we re-check</b>Every field on this page is re-pulled on Speero&rsquo;s monthly sweep, including homepage H1/H2, capability docs, SDKs, compliance, pricing surface, and MCP docs.</div>
           <div class="item"><b>What &ldquo;empty&rdquo; means</b>Empty fields mean we could not verify a claim first-party. We leave those blank rather than guess.</div>
           <div class="item"><b>How the list stays honest</b>URLs are managed in the database. New URLs get added when the vendor ships a new surface; dead URLs get flagged and removed. Adding coverage is a database change, not a code change.</div>
         </div>
