@@ -104,8 +104,8 @@
   // Agentic positions are Airtable's Agentic Map X/Y Final (v2 scorer, override
   // precedence already applied), carried in the payload. Plot them directly;
   // never re-derive in the browser. A vendor with no Final plots at centre.
-  function agenticX(v) { if (typeof v.ax === "number") return v.ax; console.warn("[map] no agenticX for " + v.n + " — payload needs a rescore"); return 50; }
-  function agenticY(v) { if (typeof v.ay === "number") return v.ay; console.warn("[map] no agenticY for " + v.n + " — payload needs a rescore"); return 50; }
+  function agenticX(v) { if (typeof v.ax === "number") return v.ax; console.warn("[map] no agenticX for " + v.n + ": payload needs a rescore"); return 50; }
+  function agenticY(v) { if (typeof v.ay === "number") return v.ay; console.warn("[map] no agenticY for " + v.n + ": payload needs a rescore"); return 50; }
 
   // ---------- quadrant map SVG (name-as-marker, collision dodge) ----------
   function renderMap(opts) {
@@ -177,7 +177,7 @@
       quads: ["Smart but manual", "Agentic-native", "Pre-AI / manual", "Programmable, low AI"]
     });
   }
-  const MAP_METHOD = '<p><b>A caveat, upfront.</b> Every 2&times;2 like this compresses a multi-dimensional stack &mdash; pricing model, compliance depth, SDK breadth, buyer type &mdash; into a single dot, which makes it look more authoritative than it is. A tool built for two audiences gets averaged into serving neither, and position can read as ranking even when it isn&rsquo;t one.</p><p><b>How to read it.</b> Nothing here is hand-placed. Every dot is computed from the verified capability tags in the vendor database, the same data driving the filters on the hub. When a vendor ships a new SDK or drops a pricing tier, it moves on the next monthly sweep. But computed isn&rsquo;t the same as correct: the weights behind each axis are judgment calls, the tags are only as good as our verification, and a 2D view of a many-dimension database loses information by definition.</p><p>If a position looks wrong to you, <a class="redlink" href="https://speero.com/#main-form">tell us</a> and we&rsquo;ll re-verify the underlying tags.</p>';
+  const MAP_METHOD = '<p><b>A caveat, upfront.</b> Every 2&times;2 like this compresses a multi-dimensional stack (pricing model, compliance depth, SDK breadth, buyer type) into a single dot, which makes it look more authoritative than it is. A tool built for two audiences gets averaged into serving neither, and position can read as ranking even when it isn&rsquo;t one.</p><p><b>How to read it.</b> Nothing here is hand-placed. Every dot is computed from the verified capability tags in the vendor database, the same data driving the filters on the hub. When a vendor ships a new SDK or drops a pricing tier, it moves on the next monthly sweep. But computed isn&rsquo;t the same as correct: the weights behind each axis are judgment calls, the tags are only as good as our verification, and a 2D view of a many-dimension database loses information by definition.</p><p>If a position looks wrong to you, <a class="redlink" href="https://speero.com/#main-form">tell us</a> and we&rsquo;ll re-verify the underlying tags.</p>';
 
   // ---------- SEO: computed fallbacks + head injection (Phase E) ----------
   const SITE = "https://speero.com";
@@ -286,11 +286,11 @@
         <div>
           <span class="eyebrow">${esc((v.ucf && v.ucf[0]) || "Experimentation platform")}</span>
           <h1>${esc(seoH1(v))}</h1>
-          <p class="h2q">&ldquo;${esc(v.h1 || "")}&rdquo; ${v.h2 ? "&mdash; " + esc(v.h2) : ""}</p>
+          <p class="h2q">&ldquo;${esc(v.h1 || "")}&rdquo; ${v.h2 ? "&middot; " + esc(v.h2) : ""}</p>
           <a class="visit" href="${esc(v.url)}" target="_blank" rel="noopener">Visit ${esc(v.n.split(" ")[0])} &#8599;</a>
         </div>
         <aside class="glance">
-          <h3>At a glance</h3>
+          <h2>At a glance</h2>
           <dl>
             <dt>MCP server</dt><dd>${mcp.type === "Product" ? '<b class="red">Yes, product</b>' : mcp.type === "Platform" ? "<b>Platform-level</b>" : "None"}</dd>
             ${(v.caps || []).length ? `<dt>MCP capabilities</dt><dd><b>${v.caps.length}</b> verified</dd>` : ""}

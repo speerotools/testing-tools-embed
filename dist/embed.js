@@ -72,8 +72,8 @@
     return clamp(s);
   }
   // Agentic positions are Airtable's Final, carried in the payload; never re-derived here.
-  function agenticX(v) { if (typeof v.ax === "number") return v.ax; console.warn("[map] no agenticX for " + v.n + " — payload needs a rescore"); return 50; }
-  function agenticY(v) { if (typeof v.ay === "number") return v.ay; console.warn("[map] no agenticY for " + v.n + " — payload needs a rescore"); return 50; }
+  function agenticX(v) { if (typeof v.ax === "number") return v.ax; console.warn("[map] no agenticX for " + v.n + ": payload needs a rescore"); return 50; }
+  function agenticY(v) { if (typeof v.ay === "number") return v.ay; console.warn("[map] no agenticY for " + v.n + ": payload needs a rescore"); return 50; }
 
   // ---------- v2 quadrant map SVG (dot marker + ring-search label placement) ----------
   function measure(s, fs) {
@@ -307,7 +307,7 @@
     const row = (label, fn, opts = {}) => `<tr><td>${label}</td>${vs.map(v => {
       const val = fn(v);
       if (opts.bool) return `<td>${val ? '<span class="yes">Yes</span>' : '<span class="dim">No</span>'}</td>`;
-      return `<td>${val || '<span class="dim">&mdash;</span>'}</td>`;
+      return `<td>${val || '<span class="dim">&ndash;</span>'}</td>`;
     }).join("")}</tr>`;
     mount.innerHTML = `
     <div class="wrap">
