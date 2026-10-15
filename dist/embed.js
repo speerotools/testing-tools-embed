@@ -20,6 +20,18 @@
   let VENDORS = [];
   let LAST_VERIFIED = "";
 
+  // ---------- native content ----------
+  // The Webflow page carries its own H1 and intro ([data-tt-native-head]) and
+  // a plain-HTML vendor directory ([data-tt-native-dir]) bound to the CMS, so
+  // crawlers and no-JS readers get real content and links. The embed never
+  // renders a second H1 when the page has one, and hides the native directory
+  // only once its own interactive directory has rendered.
+  const hasNativeH1 = () => !!document.querySelector("[data-tt-native-head] h1");
+  const hTag = () => (hasNativeH1() ? "h2" : "h1");
+  function enhanceNative() {
+    document.querySelectorAll("[data-tt-native-dir]").forEach(el => { el.style.display = "none"; el.setAttribute("aria-hidden", "true"); });
+  }
+
   // ---------- normalize production shape -> render shape ----------
   const cap = s => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
   const num = x => (typeof x === "number" ? x : (x != null && x !== "" && !isNaN(+x) ? +x : null));
@@ -245,8 +257,8 @@
     return `
     <div class="wrap">
       <div class="hero">
-        <span class="eyebrow">Vendor intelligence, verified monthly</span>
-        <h1>Every A/B testing and experimentation tool, on one instrument panel</h1>
+        ${hasNativeH1() ? "" : `<span class="eyebrow">Vendor intelligence, verified monthly</span>
+        <h1>Every A/B testing and experimentation tool, on one instrument panel</h1>`}
         <p class="sub">${total} platforms compared on capabilities, pricing model, compliance, and how ready each one is for AI agents. Every data point traces to a first-party vendor source and gets re-verified on a monthly cycle.</p>
         <div class="metastrip">
           <div><b>${total}</b><span>Vendors tracked</span></div>
@@ -286,7 +298,7 @@
     const inCmp = state.compare.includes(v.s);
     return `<article class="card" data-slug="${v.s}" tabindex="0" role="link" aria-label="Open ${esc(v.n)} profile">
       <button class="cmpadd ${inCmp ? "on" : ""}" data-cmp="${v.s}" aria-label="${inCmp ? "Remove from" : "Add to"} compare">${inCmp ? "Added" : "+ Compare"}</button>
-      <div class="name">${esc(v.n)}</div>
+      <div class="name"><a href="${TOOL_BASE}/${esc(v.s)}">${esc(v.n)}</a></div>
       <div class="tagline">${esc(v.h1 || "")}</div>
       <div class="chips">
         ${v.mcp && v.mcp.type === "Product" ? '<span class="chip mcp">MCP server</span>' : ""}
@@ -312,7 +324,7 @@
     mount.innerHTML = `
     <div class="wrap">
       <nav class="breadcrumb"><a href="#" id="backHub">&#8592; All A/B testing tools</a> / Compare</nav>
-      <div class="hero" style="padding-top:26px"><span class="eyebrow">Side by side</span><h1>${vs.map(v => esc(v.n)).join(" vs ")}</h1></div>
+      <div class="hero" style="padding-top:26px"><span class="eyebrow">Side by side</span><${hTag()}>${vs.map(v => esc(v.n)).join(" vs ")}</${hTag()}></div>
       <section>
         <div class="cmp-table-wrap"><table class="cmp">
           <tr><td></td>${vs.map(v => `<th><a href="${TOOL_BASE}/${v.s}" style="text-decoration:none">${esc(v.n)}</a></th>`).join("")}</tr>
@@ -334,6 +346,7 @@
   // ---------- render + tray ----------
   function render() {
     mount.innerHTML = hubView();
+    enhanceNative();
     renderTray();
   }
   function refreshDirectory() {
@@ -392,6 +405,7 @@
     if (cmp) { e.stopPropagation(); toggleCompare(cmp.getAttribute("data-cmp")); return; }
     const untray = e.target.closest("[data-untray]");
     if (untray) { toggleCompare(untray.getAttribute("data-untray")); return; }
+    if (e.target.closest(".card a[href]")) return;   // a real link navigates itself
     const card = e.target.closest(".card[data-slug]");
     if (card) { location.href = TOOL_BASE + "/" + card.getAttribute("data-slug"); return; }
     const fbtn = e.target.closest(".fbtn");
@@ -433,7 +447,7 @@
 
   // ---------- boot ----------
   function showLoading() { mount.innerHTML = `<div class="wrap"><div class="hero"><p class="sub">Loading testing tools&hellip;</p></div></div>`; }
-  function showError() { mount.innerHTML = `<div class="wrap"><div class="hero"><h1>Tools directory temporarily unavailable</h1><p class="sub">We couldn&rsquo;t load the data right now. Please refresh in a moment.</p></div></div>`; }
+  function showError() { mount.innerHTML = `<div class="wrap"><div class="hero"><h2>Tools directory temporarily unavailable</h2><p class="sub">We couldn&rsquo;t load the data right now. Please refresh in a moment.</p></div></div>`; }
 
   showLoading();
   fetch(DATA_URL, { cache: "no-cache" })

@@ -117,3 +117,13 @@
 #speero-tool-page .srcfoot .pill{display:inline-block;font-size:10.5px;font-weight:900;padding:3px 9px;background:var(--card);border:1px solid var(--hairline);text-transform:uppercase;letter-spacing:.08em;margin-right:8px;color:var(--ink)}
 #speero-tool-page .srcurls tr.blocked td{opacity:.55}
 #speero-tool-page .srcurls .badge.blocked{color:var(--ink-40);border-color:var(--hairline)}
+
+/* Native content (v1.8.0). The template server-renders the H1 and the
+   platform overview inside the mount; these rules style them the same with
+   or without the island, which adopts the nodes into its layout. */
+#speero-tool-page .tt-native{padding:28px 0 40px}
+#speero-tool-page .tt-native-h1{font-size:clamp(28px,4vw,40px);margin:10px 0 12px}
+#speero-tool-page .tt-native-body{max-width:760px;margin:8px 0 30px}
+#speero-tool-page .tt-native-body h2{font-size:20px;margin:0 0 12px}
+#speero-tool-page .tt-native-body p{font-size:16.5px;line-height:1.7;margin:0 0 14px;border-left:3px solid var(--red);padding-left:22px}
+#speero-tool-page .tt-native-body a{color:var(--red)}

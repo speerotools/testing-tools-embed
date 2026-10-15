@@ -21,6 +21,22 @@
   let VENDORS = [];
   let LAST_VERIFIED = "";
 
+  // ---------- native content ----------
+  // The Webflow template server-renders the page's H1 and the platform
+  // overview inside the mount, bound to CMS fields the data sync fills. They
+  // are what crawlers and no-JS readers get. The island adopts those exact
+  // nodes into its layout instead of rendering its own copies, and leaves
+  // them in place if the data cannot load.
+  const NATIVE_H1 = mount.querySelector("[data-tt-native-h1]");
+  const NATIVE_BODY = mount.querySelector("[data-tt-native-body]");
+  const hasNative = () => !!(NATIVE_H1 || NATIVE_BODY);
+  function adoptNative() {
+    [["h1", NATIVE_H1], ["body", NATIVE_BODY]].forEach(([slot, node]) => {
+      const ph = mount.querySelector(`[data-tt-slot="${slot}"]`);
+      if (ph && node) ph.replaceWith(node);
+    });
+  }
+
   // ---------- slug resolution ----------
   function currentSlug() {
     const attr = (mount.getAttribute("data-slug") || "").trim();
@@ -285,7 +301,7 @@
       <div class="dhero">
         <div>
           <span class="eyebrow">${esc((v.ucf && v.ucf[0]) || "Experimentation platform")}</span>
-          <h1>${esc(seoH1(v))}</h1>
+          ${NATIVE_H1 ? '<div data-tt-slot="h1"></div>' : `<h1>${esc(seoH1(v))}</h1>`}
           <p class="h2q">&ldquo;${esc(v.h1 || "")}&rdquo; ${v.h2 ? "&middot; " + esc(v.h2) : ""}</p>
           <a class="visit" href="${esc(v.url)}" target="_blank" rel="noopener">Visit ${esc(v.n.split(" ")[0])} &#8599;</a>
         </div>
@@ -305,8 +321,8 @@
       </div>
 
       <div class="dsec">
-        <h2>The Speero take</h2>
-        <p class="take">${esc(v.take || "")}</p>
+        ${NATIVE_BODY ? '<div data-tt-slot="body"></div>' : `<h2>Platform overview</h2>
+        <p class="take">${esc(v.take || "")}</p>`}
         <div class="maps2">
           <div>
             <h3 style="font-size:13px;margin-bottom:8px">Where it sits in the market</h3>
@@ -418,7 +434,9 @@
     mount.innerHTML = `<div class="wrap"><div class="dsec" style="border:none"><p class="lede">Loading profile&hellip;</p></div></div>`;
   }
 
-  showLoading();
+  // With native content on the page there is something to read already, so
+  // no loading state replaces it.
+  if (!hasNative()) showLoading();
   fetch(DATA_URL, { cache: "no-cache" })
     .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(data => {
@@ -427,9 +445,12 @@
       LAST_VERIFIED = data.version || "";
       const slug = currentSlug();
       const v = bySlug(slug);
+      // A slug the data does not know yet (the CDN can lag the CMS) keeps the
+      // native profile rather than replacing it with "not found".
+      if (!v && hasNative()) return;
       mount.innerHTML = v ? detailView(v) : notFoundView(slug);
-      if (v) injectHead(v);          // Phase E: title, meta, canonical, OG/Twitter, JSON-LD
+      if (v) { adoptNative(); injectHead(v); }  // Phase E: title, meta, canonical, OG/Twitter, JSON-LD
       else document.title = "Tool not found | A/B testing tools | Speero";
     })
-    .catch(() => { mount.innerHTML = errorView(); });
+    .catch(() => { if (!hasNative()) mount.innerHTML = errorView(); });
 })();

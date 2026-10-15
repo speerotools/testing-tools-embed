@@ -19,3 +19,22 @@ The embed fetches its data at runtime from `speerotools/testing-tools-data`.
 3. Update the version number in the Webflow embed snippet and republish.
 
 Do not edit served versions in place — always cut a new tag so rollbacks are clean.
+
+## Native content (v1.8.0)
+
+Both surfaces now progressively enhance server-rendered Webflow content.
+
+**Vendor pages (`island.js`).** The template renders, inside
+`#speero-tool-page`, an H1 marked `data-tt-native-h1` (bound to the CMS
+`seo-h1` field) and a rich-text block marked `data-tt-native-body` (bound to
+`profile-body`, the factual platform overview). The data sync fills both.
+The island moves those exact nodes into its layout instead of rendering its
+own H1 and overview, shows no loading state over them, and leaves them in
+place if the data fetch fails or the slug is not in the data yet.
+
+**Landing page (`embed.js`).** The page carries a native H1 and intro marked
+`data-tt-native-head` and a Collection List directory marked
+`data-tt-native-dir` with real links to every published vendor page. The
+embed skips its own hero H1 when the native one exists (compare view uses an
+H2), hides the native directory only after its own directory renders, and
+its cards now carry a real `<a href>` on the vendor name.
