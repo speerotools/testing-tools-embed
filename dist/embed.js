@@ -199,7 +199,7 @@
       quads: ["Smart but manual", "Agentic-native", "Pre-AI / manual", "Programmable, low AI"]
     });
   }
-  const MAP_METHOD = 'How to read this: positions are computed from verified capability tags in our vendor database, not vendor claims or opinion scores. Weights are directional. If you think a position is wrong, <a class="redlink" href="https://speero.com/#main-form">tell us</a> and we will re-verify the underlying tags.';
+  const MAP_METHOD = 'How to read this: positions are computed from first-party-sourced capability tags in our vendor database, not opinion scores. Weights are directional. If you think a position is wrong, <a class="redlink" href="https://speero.com/#main-form">tell us</a> and we will re-check the underlying tags.';
   function mapTabs(focal, idp) {
     const mid = idp + "-m", aid = idp + "-a";
     return `<div class="mapgroup" data-mapgroup>
@@ -257,14 +257,14 @@
     return `
     <div class="wrap">
       <div class="hero">
-        ${hasNativeH1() ? "" : `<span class="eyebrow">Vendor intelligence, verified monthly</span>
+        ${hasNativeH1() ? "" : `<span class="eyebrow">Vendor intelligence, refreshed monthly</span>
         <h1>Every A/B testing and experimentation tool, on one instrument panel</h1>`}
-        <p class="sub">${total} platforms compared on capabilities, pricing model, compliance, and how ready each one is for AI agents. Every data point traces to a first-party vendor source and gets re-verified on a monthly cycle.</p>
+        <p class="sub">${total} platforms compared on capabilities, pricing model, compliance, and how ready each one is for AI agents. Every data point traces to a first-party vendor source and the sources are re-fetched on a monthly cycle.</p>
         <div class="metastrip">
           <div><b>${total}</b><span>Vendors tracked</span></div>
           <div><b><span class="red">${mcpCount}</span></b><span>Ship a product MCP server</span></div>
           <div><b>100%</b><span>First-party sourced</span></div>
-          <div><b>${esc(LAST_VERIFIED)}</b><span>Last verified</span></div>
+          <div><b>${esc(LAST_VERIFIED)}</b><span>Data last synced</span></div>
         </div>
       </div>
 
@@ -307,7 +307,7 @@
         ${(v.ucf || []).slice(0, 2).map(u => `<span class="chip">${esc(u.split(" (")[0])}</span>`).join("")}
       </div>
       <div class="foot">
-        <span class="mono-label">${v.scraped ? "Verified " + fmtDate(v.scraped) : "First-party sourced"}</span>
+        <span class="mono-label">${v.scraped ? "Last enrichment " + fmtDate(v.scraped) : "First-party sourced"}</span>
         <span class="view">View profile &#8594;</span>
       </div>
     </article>`;
@@ -330,14 +330,14 @@
           <tr><td></td>${vs.map(v => `<th><a href="${TOOL_BASE}/${v.s}" style="text-decoration:none">${esc(v.n)}</a></th>`).join("")}</tr>
           ${row("Positioning (H1)", v => esc(v.h1))}
           ${row("Product MCP server", v => v.mcp && v.mcp.type === "Product", { bool: true })}
-          ${row("Native AI features", v => (v.ai || []).length ? `<b>${v.ai.length}</b> verified` : "")}
+          ${row("Native AI features", v => (v.ai || []).length ? `<b>${v.ai.length}</b> listed` : "")}
           ${row("Pricing model", v => esc((v.price || []).join(", ")))}
           ${row("Compliance", v => esc((v.comp || []).join(", ")))}
           ${row("SDK coverage", v => (v.sdk || []).length ? `<b>${v.sdk.length}</b> languages / surfaces` : "")}
           ${row("Use case fit", v => esc((v.ucf || []).join(", ")))}
           ${row("Status", v => v.acq ? "Acquired: " + esc(v.acq) : v.status)}
         </table></div>
-        <p class="map-caption" style="border:none">Every cell traces to a first-party vendor source. A dash means we could not verify the claim, not that the capability is impossible.</p>
+        <p class="map-caption" style="border:none">Every cell traces to a first-party vendor source. A dash means we could not find the claim in a first-party source, not that the capability is impossible.</p>
       </section>
     </div>`;
     mount.querySelector("#backHub").addEventListener("click", e => { e.preventDefault(); render(); });

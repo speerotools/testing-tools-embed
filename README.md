@@ -38,3 +38,17 @@ place if the data fetch fails or the slug is not in the data yet.
 embed skips its own hero H1 when the native one exists (compare view uses an
 H2), hides the native directory only after its own directory renders, and
 its cards now carry a real `<a href>` on the vendor name.
+
+## Dates and provenance (v1.8.0)
+
+Each date means one thing, and none stands in for another:
+
+| Field | Label | Source |
+|---|---|---|
+| `scraped` | Last enrichment | Last Vendor Scrape (enrichment apply step) |
+| `swept` | Sources last fetched | newest successful URL fetch |
+| `factVerifiedAt` | Selected facts checked (specific claims only) | Airtable Fact Verified At, set by a person |
+| `editorialReviewedAt` | Editorial review, or "No approval date recorded" | Airtable Editorial Reviewed At, set by a person |
+
+The Review JSON-LD `datePublished` uses `editorialReviewedAt` only and is
+omitted without it. Counts and headings say "listed", not "verified".

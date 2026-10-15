@@ -68,6 +68,10 @@
       scraped: v.scraped || "",       // last vendor scrape date (Last Vendor Scrape)
       sources: v.sources || [],       // [{type,url,fetched,updated?}] from Vendor URLs registry
       swept: v.swept || "",           // last URL fetch date (sweep), distinct from scraped
+      // Provenance dates, set by people in Airtable. Never derived from a
+      // fetch or enrichment date; a record without them shows none.
+      factVerifiedAt: v.factVerifiedAt || "",           // selected claims checked
+      editorialReviewedAt: v.editorialReviewedAt || "", // human editorial approval
       enrichment: v.enrichment || "", // Enrichment Status pill
       acq:    v.acquiredBy || "",
       seoTitle: v.seoTitle || "",     // Phase E: reviewed Meta Title (falls back below)
@@ -193,7 +197,7 @@
       quads: ["Smart but manual", "Agentic-native", "Pre-AI / manual", "Programmable, low AI"]
     });
   }
-  const MAP_METHOD = '<p><b>A caveat, upfront.</b> Every 2&times;2 like this compresses a multi-dimensional stack (pricing model, compliance depth, SDK breadth, buyer type) into a single dot, which makes it look more authoritative than it is. A tool built for two audiences gets averaged into serving neither, and position can read as ranking even when it isn&rsquo;t one.</p><p><b>How to read it.</b> Nothing here is hand-placed. Every dot is computed from the verified capability tags in the vendor database, the same data driving the filters on the hub. When a vendor ships a new SDK or drops a pricing tier, it moves on the next monthly sweep. But computed isn&rsquo;t the same as correct: the weights behind each axis are judgment calls, the tags are only as good as our verification, and a 2D view of a many-dimension database loses information by definition.</p><p>If a position looks wrong to you, <a class="redlink" href="https://speero.com/#main-form">tell us</a> and we&rsquo;ll re-verify the underlying tags.</p>';
+  const MAP_METHOD = '<p><b>A caveat, upfront.</b> Every 2&times;2 like this compresses a multi-dimensional stack (pricing model, compliance depth, SDK breadth, buyer type) into a single dot, which makes it look more authoritative than it is. A tool built for two audiences gets averaged into serving neither, and position can read as ranking even when it isn&rsquo;t one.</p><p><b>How to read it.</b> Nothing here is hand-placed. Every dot is computed from the first-party-sourced capability tags in the vendor database, the same data driving the filters on the hub. When a vendor ships a new SDK or drops a pricing tier, it moves on the next monthly sweep. But computed isn&rsquo;t the same as correct: the weights behind each axis are judgment calls, the tags are only as good as our sourcing, and a 2D view of a many-dimension database loses information by definition.</p><p>If a position looks wrong to you, <a class="redlink" href="https://speero.com/#main-form">tell us</a> and we&rsquo;ll re-check the underlying tags.</p>';
 
   // ---------- SEO: computed fallbacks + head injection (Phase E) ----------
   const SITE = "https://speero.com";
@@ -271,7 +275,9 @@
         "@type": "Review",
         author: { "@type": "Organization", name: "Speero", url: SITE },
         publisher: { "@type": "Organization", name: "Speero", url: SITE },
-        datePublished: v.scraped || undefined, reviewBody: v.take
+        // Only a documented editorial review dates the review. An enrichment
+        // or fetch date is not a publication date, so without one it is omitted.
+        datePublished: v.editorialReviewedAt || undefined, reviewBody: v.take
       };
     }
     const crumbs = {
@@ -309,13 +315,15 @@
           <h2>At a glance</h2>
           <dl>
             <dt>MCP server</dt><dd>${mcp.type === "Product" ? '<b class="red">Yes, product</b>' : mcp.type === "Platform" ? "<b>Platform-level</b>" : "None"}</dd>
-            ${(v.caps || []).length ? `<dt>MCP capabilities</dt><dd><b>${v.caps.length}</b> verified</dd>` : ""}
-            <dt>Native AI features</dt><dd><b>${(v.ai || []).length}</b> verified</dd>
+            ${(v.caps || []).length ? `<dt>MCP capabilities</dt><dd><b>${v.caps.length}</b> listed</dd>` : ""}
+            <dt>Native AI features</dt><dd><b>${(v.ai || []).length}</b> listed</dd>
             <dt>Pricing model</dt><dd>${esc((v.price || []).join(", ") || "Not published")}</dd>
-            <dt>Compliance</dt><dd>${esc((v.comp || []).join(", ") || "None verified first-party")}</dd>
+            <dt>Compliance</dt><dd>${esc((v.comp || []).join(", ") || "None listed first-party")}</dd>
             <dt>SDK coverage</dt><dd><b>${(v.sdk || []).length}</b> languages / surfaces</dd>
             ${v.acq ? `<dt>Acquired by</dt><dd>${esc(v.acq)}</dd>` : ""}
-            ${v.scraped ? `<dt>Last verified</dt><dd>${fmtDate(v.scraped)}</dd>` : ""}
+            ${v.scraped ? `<dt>Last enrichment</dt><dd>${fmtDate(v.scraped)}</dd>` : ""}
+            ${v.factVerifiedAt ? `<dt>Selected facts checked</dt><dd>${fmtDate(v.factVerifiedAt)}<br><span class="scope">Specific claims only, not the full profile</span></dd>` : ""}
+            <dt>Editorial review</dt><dd>${v.editorialReviewedAt ? fmtDate(v.editorialReviewedAt) : "No approval date recorded"}</dd>
           </dl>
         </aside>
       </div>
@@ -346,7 +354,7 @@
           ${mcp.hosted ? `<div class="cell"><div class="k">Hosting</div><div class="v">${esc(mcp.hosted)}</div></div>` : ""}
           ${mcp.docs ? `<div class="cell"><div class="k">MCP docs</div><div class="v"><a href="${esc(mcp.docs)}" target="_blank" rel="noopener">Documentation &#8599;</a></div></div>` : ""}
         </div>
-        ${(v.caps || []).length ? `<h4 style="margin-top:22px" class="mono-label">Verified MCP capabilities</h4><div class="tagcloud">${v.caps.map(c => `<span class="tag">${esc(c)}</span>`).join("")}</div>` : ""}
+        ${(v.caps || []).length ? `<h4 style="margin-top:22px" class="mono-label">Listed MCP capabilities</h4><div class="tagcloud">${v.caps.map(c => `<span class="tag">${esc(c)}</span>`).join("")}</div>` : ""}
         ${(v.ai || []).length ? `<h4 style="margin-top:18px" class="mono-label">Native AI features</h4><div class="tagcloud">${v.ai.map(c => `<span class="tag">${esc(c)}</span>`).join("")}</div>` : ""}
       </div>
 
@@ -376,14 +384,14 @@
         <div class="srcmethod">
           <div class="item"><b>What counts as a source</b>${esc(v.n)}&rsquo;s own site, product docs, pricing page, and trust or security center. Not aggregators, review sites, or third-party write-ups.</div>
           <div class="item"><b>What we re-check</b>Every field on this page is re-pulled on Speero&rsquo;s monthly sweep, including homepage H1/H2, capability docs, SDKs, compliance, pricing surface, and MCP docs.</div>
-          <div class="item"><b>What &ldquo;empty&rdquo; means</b>Empty fields mean we could not verify a claim first-party. We leave those blank rather than guess.</div>
+          <div class="item"><b>What &ldquo;empty&rdquo; means</b>Empty fields mean we could not find the claim in a first-party source. We leave those blank rather than guess.</div>
           <div class="item"><b>How the list stays honest</b>URLs are managed in the database. New URLs get added when the vendor ships a new surface; dead URLs get flagged and removed. Adding coverage is a database change, not a code change.</div>
         </div>
 
         <div class="srcmeta">
           <span><span class="k">Vendor</span><span class="v">${esc(v.n)}</span></span>
           <span><span class="k">Active URLs tracked</span><span class="v">${(v.sources || []).length}${(v.sources || []).filter(s => s.ok === false).length ? ` (${(v.sources || []).filter(s => s.ok === false).length} couldn&rsquo;t fetch)` : ""}</span></span>
-          ${(v.swept || v.scraped) ? `<span><span class="k">Last swept</span><span class="v">${fmtDate(v.swept || v.scraped)}</span></span>` : ""}
+          ${v.swept ? `<span><span class="k">Sources last fetched</span><span class="v">${fmtDate(v.swept)}</span></span>` : ""}
           ${v.enrichment ? `<span><span class="k">Enrichment status</span><span class="v">${esc(v.enrichment)}</span></span>` : ""}
         </div>
 
@@ -396,7 +404,7 @@
                 <tr class="${s.ok === false ? "blocked" : ""}">
                   <td class="type">${esc(s.type || "-")}</td>
                   <td class="url"><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a>${s.updated ? `<span class="badge updated">Updated</span>` : ""}${s.ok === false ? `<span class="badge blocked">Couldn&rsquo;t fetch${s.status ? " (" + s.status + ")" : ""}</span>` : ""}</td>
-                  <td class="fetched">${s.ok === false ? "not verified" : (s.fetched ? fmtDate(s.fetched) : "")}</td>
+                  <td class="fetched">${s.ok === false ? "not fetched" : (s.fetched ? fmtDate(s.fetched) : "")}</td>
                 </tr>`).join("")}
             </tbody>
           </table>
